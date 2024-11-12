@@ -8,9 +8,12 @@
 #include "BinLattice02.h"
 #include "../lecture2/BinModel02.h"
 
+// TODO introduce Vega and Theta calculator
+
 class Option {
     int N;
     public:
+        double PerturbationRatio = 0.1;
         void SetN(int N_){N=N_;}
         int GetN(){return N;}
         virtual double Payoff(double z)=0;
@@ -19,6 +22,24 @@ class Option {
 class EurOption: public virtual Option {
     public:
         double PriceByCRR(BinModel Model);
+        double DeltaByCRR(BinModel Model) {
+            BinModel Modelpp = BinModel(Model);
+            Modelpp.SetS0(Model.GetS0()*(1+PerturbationRatio));
+
+            BinModel Modelmm = BinModel(Model);
+            Modelmm.SetS0(Model.GetS0()*(1-PerturbationRatio));
+
+            return (PriceByCRR(Modelpp) - PriceByCRR(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
+        };
+        double GammaByCRR(BinModel Model) {
+            BinModel Modelpp = BinModel(Model);
+            Modelpp.SetS0(Model.GetS0()*(1+PerturbationRatio));
+
+            BinModel Modelmm = BinModel(Model);
+            Modelmm.SetS0(Model.GetS0()*(1-PerturbationRatio));
+
+            return (DeltaByCRR(Modelpp) - DeltaByCRR(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
+        };
 };
 
 class AmOption: public virtual Option {
@@ -32,6 +53,22 @@ class AmOption: public virtual Option {
             BinLattice<double> PriceTree("PriceTree");
             BinLattice<bool> StoppingTree("StoppingTree");
             return PriceBySnell(Model, PriceTree, StoppingTree);
+        }
+        double DeltaBySnell(BinModel Model) {
+            BinModel Modelpp = BinModel(Model);
+            Modelpp.SetS0(Model.GetS0()*(1+PerturbationRatio));
+
+            BinModel Modelmm = BinModel(Model);
+            Modelmm.SetS0(Model.GetS0()*(1-PerturbationRatio));
+            return (PriceBySnell(Modelpp) - PriceBySnell(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
+        }
+        double GammaBySnell(BinModel Model) {
+            BinModel Modelpp = BinModel(Model);
+            Modelpp.SetS0(Model.GetS0()*(1+PerturbationRatio));
+
+            BinModel Modelmm = BinModel(Model);
+            Modelmm.SetS0(Model.GetS0()*(1-PerturbationRatio));
+            return (DeltaBySnell(Modelpp) - DeltaBySnell(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
         }
 };
 
@@ -70,9 +107,10 @@ class KnockOutCall: public Call {
         double Payoff(double z);
 };
 
-class CallSpread {
+class CallSpread: public virtual Option {
     Call CallLong;
     Call CallShort;
+
     public:
         friend std::string to_string(const CallSpread& x) { return "CallSpread"; }
         void SetK(double Kl_, double Ks_) {
@@ -106,6 +144,30 @@ class CallSpread {
         };
         double PriceBySnell(BinModel Model) {
             return CallLong.PriceBySnell(Model) - CallShort.PriceBySnell(Model);
+        }
+        double DeltaByCRR(BinModel Model) {
+            BinModel Modelpp = BinModel(Model);
+            Modelpp.SetS0(Model.GetS0()*(1+PerturbationRatio));
+
+            BinModel Modelmm = BinModel(Model);
+            Modelmm.SetS0(Model.GetS0()*(1-PerturbationRatio));
+            return (PriceByCRR(Modelpp) - PriceByCRR(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
+        }
+        double GammaByCRR(BinModel Model) {
+            BinModel Modelpp = BinModel(Model);
+            Modelpp.SetS0(Model.GetS0()*(1+PerturbationRatio));
+
+            BinModel Modelmm = BinModel(Model);
+            Modelmm.SetS0(Model.GetS0()*(1-PerturbationRatio));
+            return (DeltaByCRR(Modelpp) - DeltaByCRR(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
+        }
+        double DeltaBySnell(BinModel Model) {
+            BinModel Modelpp = BinModel(Model);
+            Modelpp.SetS0(Model.GetS0()*(1+PerturbationRatio));
+
+            BinModel Modelmm = BinModel(Model);
+            Modelmm.SetS0(Model.GetS0()*(1-PerturbationRatio));
+            return (PriceBySnell(Modelpp) - PriceBySnell(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
         }
 };
 

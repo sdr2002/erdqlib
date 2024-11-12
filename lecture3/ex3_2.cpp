@@ -132,66 +132,195 @@ int run_ex3_2_part2() {
     return 0;
 }
 
-/* Run PVs over a range of initial stock prices (S0) for Eur/Ame Call Spread using BinomialModel dynamics*/
-int run_ex3_2_part3() {
-    BinModel Model;
-
-    // if (Model.GetInputDynamicsParameters() == 1) return 1;
-    if (Model.GetDefaultDynamicsParameters() == 1) return 1;
-
-    Call CallOption;
-    CallOption.GetDefaultGridParameters();
-
-    KnockOutCall KnockOutCallOption;
-    KnockOutCallOption.GetDefaultGridParameters();
-
-    CallSpread CallSpreadOption;
-    CallSpreadOption.GetDefaultGridParameters();
-
+void render_over_S0range(
+    BinModel& Model,
+    Call& CallOption, KnockOutCall& KnockOutCallOption, CallSpread& CallSpreadOption
+) {
+    // Render over the S0range
+    // TODO diagnose the ugliness of PV and Delta valuation in S0 range calculation compared to K range
     vector<double> S0Range;
     vector<double> EuropeanPVs;
+    vector<double> EuropeanDeltas;
     vector<double> AmericanPVs;
     vector<double> KoEuropeanPVs;
+    vector<double> KoEuropeanDeltas;
     vector<double> KoAmericanPVs;
+    vector<double> KoAmericanDeltas;
     vector<double> SpreadEuropeanPVs;
+    vector<double> SpreadEuropeanDeltas;
     vector<double> SpreadAmericanPVs;
-    for (double s0 = 50.0; s0 <= 200.0; s0 += 5.0) {
+    vector<double> SpreadAmericanDeltas;
+    for (double s0 = 50.0; s0 <= 250.0; s0 += 5.0) {
         Model.SetS0(s0);
         S0Range.push_back(s0);
 
         EuropeanPVs.push_back(CallOption.PriceByCRR(Model));
+        EuropeanDeltas.push_back(CallOption.DeltaByCRR(Model));
         AmericanPVs.push_back(CallOption.PriceBySnell(Model));
 
         KoEuropeanPVs.push_back(KnockOutCallOption.PriceByCRR(Model));
+        KoEuropeanDeltas.push_back(KnockOutCallOption.DeltaByCRR(Model));
         KoAmericanPVs.push_back(KnockOutCallOption.PriceBySnell(Model));
+        KoAmericanDeltas.push_back(KnockOutCallOption.DeltaBySnell(Model));
 
         SpreadEuropeanPVs.push_back(CallSpreadOption.PriceByCRR(Model));
+        SpreadEuropeanDeltas.push_back(CallSpreadOption.DeltaByCRR(Model));
         SpreadAmericanPVs.push_back(CallSpreadOption.PriceBySnell(Model));
+        SpreadAmericanDeltas.push_back(CallSpreadOption.DeltaBySnell(Model));
     }
 
     cout << setw(10) << "S0"
          << setw(20) << "PV_Eur"
+         << setw(20) << "Delta_Eur"
          << setw(20) << "PV_Ame"
          << setw(10) << "|"
          << setw(20) << "PV_KoEur"
+         << setw(20) << "Delta_KoEur"
          << setw(20) << "PV_KoAme"
+         << setw(20) << "Delta_KoAme"
          << setw(10) << "|"
          << setw(20) << "PV_EurSpread"
+         << setw(20) << "Delta_EurSpread"
          << setw(20) << "PV_AmeSpread"
+         << setw(20) << "Delta_AmeSpread"
          << endl;
-    cout << string(130, '-') << endl;
+    cout << string(250, '-') << endl;
     for (size_t i=0; i< S0Range.size(); i++) {
         cout << setw(10) << S0Range[i]
              << setw(20) << EuropeanPVs[i]
+             << setw(20) << EuropeanDeltas[i]
              << setw(20) << AmericanPVs[i]
              << setw(10) << "|"
              << setw(20) << KoEuropeanPVs[i]
+             << setw(20) << KoEuropeanDeltas[i]
              << setw(20) << KoAmericanPVs[i]
+             << setw(20) << KoAmericanDeltas[i]
              << setw(10) << "|"
              << setw(20) << SpreadEuropeanPVs[i]
+             << setw(20) << SpreadEuropeanDeltas[i]
              << setw(20) << SpreadAmericanPVs[i]
+             << setw(20) << SpreadAmericanDeltas[i]
              << endl;
     }
+
+    cout << endl << endl;
+}
+
+void render_over_Krange(
+    BinModel& Model,
+    Call& CallOption, KnockOutCall& KnockOutCallOption, CallSpread& CallSpreadOption
+) {
+    // Render over the Krange
+    // TODO add vega after introducing U,D <-> Volt, then theta
+    vector<double> KRange;
+    vector<double> EuropeanPVs;
+    vector<double> EuropeanDeltas;
+    vector<double> EuropeanGammas;
+    vector<double> AmericanPVs;
+    vector<double> KoEuropeanPVs;
+    vector<double> KoEuropeanDeltas;
+    vector<double> KoEuropeanGammas;
+    vector<double> KoAmericanPVs;
+    vector<double> KoAmericanDeltas;
+    vector<double> KoAmericanGammas;
+    vector<double> SpreadEuropeanPVs;
+    vector<double> SpreadEuropeanDeltas;
+    vector<double> SpreadEuropeanGammas;
+    vector<double> SpreadAmericanPVs;
+    vector<double> SpreadAmericanDeltas;
+    for (double K = 50.0; K <= 200.0; K += 5.0) {
+        CallOption.SetK(K);
+        KnockOutCallOption.SetK(K);
+        CallSpreadOption.SetK(K, K+35);
+        KRange.push_back(K);
+
+        EuropeanPVs.push_back(CallOption.PriceByCRR(Model));
+        EuropeanDeltas.push_back(CallOption.DeltaByCRR(Model));
+        EuropeanGammas.push_back(CallOption.GammaByCRR(Model));
+        AmericanPVs.push_back(CallOption.PriceBySnell(Model));
+
+        KoEuropeanPVs.push_back(KnockOutCallOption.PriceByCRR(Model));
+        KoEuropeanDeltas.push_back(KnockOutCallOption.DeltaByCRR(Model));
+        KoEuropeanGammas.push_back(KnockOutCallOption.GammaByCRR(Model));
+        KoAmericanPVs.push_back(KnockOutCallOption.PriceBySnell(Model));
+        KoAmericanDeltas.push_back(KnockOutCallOption.DeltaBySnell(Model));
+        KoAmericanGammas.push_back(KnockOutCallOption.GammaBySnell(Model));
+
+        SpreadEuropeanPVs.push_back(CallSpreadOption.PriceByCRR(Model));
+        SpreadEuropeanDeltas.push_back(CallSpreadOption.DeltaByCRR(Model));
+        SpreadEuropeanGammas.push_back(CallSpreadOption.GammaByCRR(Model));
+        SpreadAmericanPVs.push_back(CallSpreadOption.PriceBySnell(Model));
+        SpreadAmericanDeltas.push_back(CallSpreadOption.DeltaBySnell(Model));
+    }
+
+    cout << setw(10) << "K"
+         << setw(15) << "PV_Eur"
+         << setw(15) << "Delta_Eur"
+         << setw(15) << "Gamma_Eur"
+         << setw(15) << "PV_Ame"
+         << setw(10) << "|"
+         << setw(15) << "PV_KoEur"
+         << setw(15) << "Delta_KoEur"
+         << setw(15) << "Gamma_KoEur"
+         << setw(15) << "PV_KoAme"
+         << setw(15) << "Delta_KoAme"
+         << setw(15) << "Gamma_KoAme"
+         << setw(10) << "|"
+         << setw(15) << "PV_EurSprd"
+         << setw(15) << "Delta_EurSprd"
+         << setw(15) << "Gamma_EurSprd"
+         << setw(15) << "PV_AmeSprd"
+         << setw(15) << "Delta_AmeSprd"
+         << endl;
+    cout << string(260, '-') << endl;
+    for (size_t i=0; i< KRange.size(); i++) {
+        cout << setw(10) << KRange[i]
+             << setw(15) << EuropeanPVs[i]
+             << setw(15) << EuropeanDeltas[i]
+             << setw(15) << EuropeanGammas[i]
+             << setw(15) << AmericanPVs[i]
+             << setw(10) << "|"
+             << setw(15) << KoEuropeanPVs[i]
+             << setw(15) << KoEuropeanDeltas[i]
+             << setw(15) << KoEuropeanGammas[i]
+             << setw(15) << KoAmericanPVs[i]
+             << setw(15) << KoAmericanDeltas[i]
+             << setw(15) << KoAmericanGammas[i]
+             << setw(10) << "|"
+             << setw(15) << SpreadEuropeanPVs[i]
+             << setw(15) << SpreadEuropeanDeltas[i]
+             << setw(15) << SpreadEuropeanGammas[i]
+             << setw(15) << SpreadAmericanPVs[i]
+             << setw(15) << SpreadAmericanDeltas[i]
+             << endl;
+    }
+
+    cout << endl << endl;
+}
+
+void reset_objects(
+    BinModel& Model,
+    Call& CallOption, KnockOutCall& KnockOutCallOption, CallSpread& CallSpreadOption
+) {
+    Model.GetDefaultDynamicsParameters();
+    CallOption.GetDefaultGridParameters();
+    KnockOutCallOption.GetDefaultGridParameters();
+    CallSpreadOption.GetDefaultGridParameters();
+}
+
+/* Run PVs over a range of initial stock prices (S0) for Eur/Ame Call Spread using BinomialModel dynamics*/
+int run_ex3_2_part3() {
+    BinModel Model;
+
+    Call CallOption;
+    KnockOutCall KnockOutCallOption;
+    CallSpread CallSpreadOption;
+
+    reset_objects(Model, CallOption, KnockOutCallOption, CallSpreadOption);
+    render_over_Krange(Model, CallOption, KnockOutCallOption, CallSpreadOption);
+
+    // reset_objects(Model, CallOption, KnockOutCallOption, CallSpreadOption);
+    // render_over_S0range(Model, CallOption, KnockOutCallOption, CallSpreadOption);
 
     return 0;
 }

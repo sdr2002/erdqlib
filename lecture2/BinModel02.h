@@ -1,6 +1,9 @@
 #ifndef BinModel2_h
 #define BinModel2_h
 
+// TODO introduce U,D <-> Volatility and R <-> exp(r*dt) conversion
+// TODO introduce per-annum concept to U,D,R as well as for Volatility
+
 class BinModel
 {
 private:
