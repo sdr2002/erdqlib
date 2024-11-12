@@ -23,10 +23,10 @@ public:
     double S(int n, int i);
 
     // Method to get input data from the user
-    int GetInputGridParameters();
+    int GetInputDynamicsParameters();
 
     // Method to set default values
-    int GetDefaultGridParameters();
+    int GetDefaultDynamicsParameters();
 
     // Getters and Setters
     double GetS0();

@@ -10,7 +10,7 @@ int main()
 
     BinModel Model;
 
-    if (Model.GetInputGridParameters() == 1) return 1;
+    if (Model.GetInputDynamicsParameters() == 1) return 1;
 
     EurCall Option1;
     Option1.GetInputGridParameters();

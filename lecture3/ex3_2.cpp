@@ -10,8 +10,8 @@ int main()
 {
     BinModel Model;
 
-    // if (Model.GetInputGridParameters() == 1) return 1;
-    if (Model.GetDefaultGridParameters() == 1) return 1;
+    // if (Model.GetInputDynamicsParameters() == 1) return 1;
+    if (Model.GetDefaultDynamicsParameters() == 1) return 1;
 
     KnockOutCall KnockOutCallOption;
     Call CallOption;

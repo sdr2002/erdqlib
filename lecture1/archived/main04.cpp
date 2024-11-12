@@ -8,7 +8,7 @@ int main()
     double S0, U, D, R;
 
     // Get input data
-    if (GetInputGridParameters(S0, U, D, R) == 1) return 1;
+    if (GetInputDynamicsParameters(S0, U, D, R) == 1) return 1;
     // 1. make sure S0 > 0, (1 + U) > 0, (1 + D) > 0, (1 + R) > 0, U < D,
     // otherwise interchange U <=> D
 

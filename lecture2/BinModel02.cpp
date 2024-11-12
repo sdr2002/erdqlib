@@ -43,7 +43,7 @@ double BinModel::S(int n, int i)
 }
 
 // Method to get input data from the user
-int BinModel::GetInputGridParameters()
+int BinModel::GetInputDynamicsParameters()
 {
     // Entering data
     cout << "Enter S0: "; cin >> S0;
@@ -57,7 +57,7 @@ int BinModel::GetInputGridParameters()
 }
 
 // Method to set default values
-int BinModel::GetDefaultGridParameters()
+int BinModel::GetDefaultDynamicsParameters()
 {
     S0 = 100;  // Initial stock price
     U = 0.1;  // Up factor

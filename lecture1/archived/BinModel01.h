@@ -12,6 +12,6 @@ double riskNeutralProb(double U, double D, double R);
 double S(double S0, double U, double D, int n, int i);
 
 //inputting, displaying and checking the model data
-int GetInputGridParameters(double &S0, double &U, double &D, double &R);
+int GetInputDynamicsParameters(double &S0, double &U, double &D, double &R);
 
 #endif //BINMODEL01_H

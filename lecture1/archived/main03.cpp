@@ -3,7 +3,7 @@
 using namespace std;
 
 // Function to get input data
-int GetInputGridParameters(double &S0, double &U, double &D, double &R)
+int GetInputDynamicsParameters(double &S0, double &U, double &D, double &R)
 {
     // Entering data
     cout << "Enter S0: "; cin >> S0;   // 100
@@ -51,7 +51,7 @@ int main()
     double S0, U, D, R;
 
     // Get input data
-    if (GetInputGridParameters(S0, U, D, R) == 1) return 1;
+    if (GetInputDynamicsParameters(S0, U, D, R) == 1) return 1;
 
     // Compute the risk-neutral probability
     double q = riskNeutralProb(U, D, R);

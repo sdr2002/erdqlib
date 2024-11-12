@@ -8,7 +8,7 @@ int main()
 {
     BinModel Model;
 
-    if (Model.GetDefaultGridParameters() == 1) return 1;
+    if (Model.GetDefaultDynamicsParameters() == 1) return 1;
 
     Call Option1;
     Option1.GetDefaultGridParameters();

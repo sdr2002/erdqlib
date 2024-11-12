@@ -15,9 +15,9 @@ double riskNeutralProb(double U, double D, double R);
 double S(double S0, double U, double D, int n, int i);
 
 //inputting, displaying and checking the model data
-int GetInputGridParameters(unique_ptr<double>& PtrS0, unique_ptr<double>& PtrU, unique_ptr<double>& PtrD, unique_ptr<double>& PtrR);
+int GetInputDynamicsParameters(unique_ptr<double>& PtrS0, unique_ptr<double>& PtrU, unique_ptr<double>& PtrD, unique_ptr<double>& PtrR);
 
-int GetInputGridParameters(unique_ptr<double>& PtrS0, unique_ptr<double>& PtrVoltBS, unique_ptr<double>& PtrR);
+int GetInputDynamicsParameters(unique_ptr<double>& PtrS0, unique_ptr<double>& PtrVoltBS, unique_ptr<double>& PtrR);
 
 void SetUDfromVolatilityBsWithNu(
     unique_ptr<double>& PtrU, unique_ptr<double>& PtrD, unique_ptr<double>& PtrNu,

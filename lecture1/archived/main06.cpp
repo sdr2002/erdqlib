@@ -8,7 +8,7 @@ int main()
 {
     double S0, U, D, R;
 
-    if (GetInputGridParameters(S0, U, D, R) == 1) return 1;
+    if (GetInputDynamicsParameters(S0, U, D, R) == 1) return 1;
 
     double K;  // strike price
     int N;     // steps to expiry

@@ -4,7 +4,7 @@
 using namespace std;
 
 // Function to get input data
-int GetInputGridParameters(
+int GetInputDynamicsParameters(
     unique_ptr<double>& PtrS0, unique_ptr<double>& PtrU, unique_ptr<double>& PtrD, unique_ptr<double>& PtrR
 ){
     double tempS0, tempU, tempD, tempR;
@@ -41,7 +41,7 @@ int GetInputGridParameters(
     return 0;
 }
 
-int GetInputGridParameters(
+int GetInputDynamicsParameters(
     unique_ptr<double>& PtrS0, unique_ptr<double>& PtrVoltBS, unique_ptr<double>& PtrR
 ){
     double tempS0, tempVoltBS, tempR;
@@ -76,7 +76,7 @@ int mainBinModel01Sptr()  // mainBinModel01Sptr
     unique_ptr<double> S0, U, D, R;
 
     // Get input data
-    if (GetInputGridParameters(S0, U, D, R) == 1) return 1;
+    if (GetInputDynamicsParameters(S0, U, D, R) == 1) return 1;
 
     // Compute the risk-neutral probability
     double q = riskNeutralProb(*U, *D, *R);
