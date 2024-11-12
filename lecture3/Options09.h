@@ -40,6 +40,17 @@ class EurOption: public virtual Option {
 
             return (DeltaByCRR(Modelpp) - DeltaByCRR(Modelmm)) / (Model.GetS0()*2*PerturbationRatio);
         };
+        double ThetaByCRR(BinModel Model) {
+            // TODO: resolve bumpiness around K = S0
+            const double PV_t0 = PriceByCRR(Model);
+
+            SetN(GetN()-1);
+            const double PV_t1 = PriceByCRR(Model);
+
+            const double theta = PV_t1 - PV_t0; // TODO: vs (PV_t1 / (1+Model.GetR())) - PV_t0; ?
+            SetN(GetN()+1);
+            return theta;
+        };
 };
 
 class AmOption: public virtual Option {

@@ -216,6 +216,7 @@ void render_over_Krange(
     vector<double> EuropeanPVs;
     vector<double> EuropeanDeltas;
     vector<double> EuropeanGammas;
+    vector<double> EuropeanThetas;
     vector<double> AmericanPVs;
     vector<double> KoEuropeanPVs;
     vector<double> KoEuropeanDeltas;
@@ -237,6 +238,7 @@ void render_over_Krange(
         EuropeanPVs.push_back(CallOption.PriceByCRR(Model));
         EuropeanDeltas.push_back(CallOption.DeltaByCRR(Model));
         EuropeanGammas.push_back(CallOption.GammaByCRR(Model));
+        EuropeanThetas.push_back(CallOption.ThetaByCRR(Model));
         AmericanPVs.push_back(CallOption.PriceBySnell(Model));
 
         KoEuropeanPVs.push_back(KnockOutCallOption.PriceByCRR(Model));
@@ -257,6 +259,7 @@ void render_over_Krange(
          << setw(15) << "PV_Eur"
          << setw(15) << "Delta_Eur"
          << setw(15) << "Gamma_Eur"
+         << setw(15) << "Theta_Eur"
          << setw(15) << "PV_Ame"
          << setw(10) << "|"
          << setw(15) << "PV_KoEur"
@@ -272,12 +275,13 @@ void render_over_Krange(
          << setw(15) << "PV_AmeSprd"
          << setw(15) << "Delta_AmeSprd"
          << endl;
-    cout << string(260, '-') << endl;
+    cout << string(275, '-') << endl;
     for (size_t i=0; i< KRange.size(); i++) {
         cout << setw(10) << KRange[i]
              << setw(15) << EuropeanPVs[i]
              << setw(15) << EuropeanDeltas[i]
              << setw(15) << EuropeanGammas[i]
+             << setw(15) << EuropeanThetas[i]
              << setw(15) << AmericanPVs[i]
              << setw(10) << "|"
              << setw(15) << KoEuropeanPVs[i]

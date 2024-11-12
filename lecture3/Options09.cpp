@@ -70,7 +70,7 @@ int Call::GetInputGridParameters()
 }
 
 int Call::GetDefaultGridParameters() {
-    const int N = 12;
+    const int N = 6;
     const double K = 100;
     cout << "Call - Getting default data as "
          << "N=" << N << ", K=" << K
@@ -98,7 +98,7 @@ int Put::GetInputGridParameters()
 }
 
 int Put::GetDefaultGridParameters() {
-    const int N = 4;
+    const int N = 6;
     const double K = 100;
     cout << "Put - Getting default data as "
          << "N=" << N << ", K=" << K
@@ -135,7 +135,7 @@ int KnockOutCall::GetInputGridParameters()
 }
 
 int KnockOutCall::GetDefaultGridParameters() {
-    const int N = 4;
+    const int N = 6;
     const double K = 100;
     const double Barrier = 135;
     cout << "KnockOutCall - Getting default data as "
@@ -148,7 +148,7 @@ int KnockOutCall::GetDefaultGridParameters() {
 }
 
 int CallSpread::GetDefaultGridParameters() {
-    const int N = 4;
+    const int N = 6;
     const double Kl = 100;
     const double Ks = 135;
     cout << "CallSpread - Getting default data as "
