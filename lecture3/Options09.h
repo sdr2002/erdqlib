@@ -27,6 +27,11 @@ class AmOption: public virtual Option {
             BinLattice<double>& PriceTree,
             BinLattice<bool>& StoppingTree
         );
+        double PriceBySnell(BinModel Model) {
+            BinLattice<double> PriceTree("PriceTree");
+            BinLattice<bool> StoppingTree("StoppingTree");
+            return PriceBySnell(Model, PriceTree, StoppingTree);
+        }
 };
 
 class Call: public EurOption, public AmOption {
@@ -44,6 +49,19 @@ class Put: public EurOption, public AmOption {
     public:
         friend std::string to_string(const Put& x) { return "PUT"; }
         void SetK(double K_){K=K_;}
+        int GetInputGridParameters();
+        int GetDefaultGridParameters();
+        double Payoff(double z);
+};
+
+class KnockOutCall: public Call {
+    double K;
+    double Barrier;
+    public:
+        friend std::string to_string(const KnockOutCall& x) { return "KnockOutCall"; }
+        void SetK(double K_){K=K_;}
+        void SetBarrier(double barrier){Barrier=barrier;}
+        double GetBarrier(){return this->Barrier;}
         int GetInputGridParameters();
         int GetDefaultGridParameters();
         double Payoff(double z);

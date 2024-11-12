@@ -105,3 +105,34 @@ double Put::Payoff(double z)
     if (z < K) return K - z;
     return 0.0;
 }
+
+double KnockOutCall::Payoff(double z) {
+    if (z > K) {
+        if (z > Barrier) return 0.0;
+        return z - K;
+    }
+    return 0.0;
+}
+
+int KnockOutCall::GetInputGridParameters()
+{
+    cout << "Enter put option data:" << endl;
+    int N;
+    cout << "Enter steps to expiry N: "; cin >> N;
+    EurOption::SetN(N); AmOption::SetN(N);
+    cout << "Enter strike price K: "; cin >> K;
+    cout << "Enter barrier price K: "; cin >> K;
+    cout << endl;
+    return 0;
+}
+
+int KnockOutCall::GetDefaultGridParameters() {
+    const int N = 12;
+    const double K = 100;
+    const double Barrier = 135;
+    cout << "Getting default data as N=" << N<< ", K=" << K << ", Barrier=" << Barrier << endl;
+    EurOption::SetN(N); AmOption::SetN(N);
+    SetK(K);
+    SetBarrier(Barrier);
+    return 0;
+}

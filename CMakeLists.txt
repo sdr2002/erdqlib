@@ -33,6 +33,7 @@ add_executable(city_ir_fx
         lecture3/BinLattice02.h
         lecture3/Options09.cpp
         lecture3/Options09.h
-        lecture3/Main14.cpp
+#        lecture3/Main14.cpp
+        lecture3/ex3_2.cpp
 
 )
