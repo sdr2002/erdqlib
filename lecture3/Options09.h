@@ -4,6 +4,7 @@
 
 #ifndef OPTIONS08_H
 #define OPTIONS08_H
+#include <format>
 #include "BinLattice02.h"
 #include "../lecture2/BinModel02.h"
 
@@ -39,6 +40,7 @@ class Call: public EurOption, public AmOption {
     public:
         friend std::string to_string(const Call& x) { return "Call"; }
         void SetK(double K_){K=K_;}
+        double GetK(){return K;}
         int GetInputGridParameters();
         int GetDefaultGridParameters();
         double Payoff(double z);
@@ -49,6 +51,7 @@ class Put: public EurOption, public AmOption {
     public:
         friend std::string to_string(const Put& x) { return "PUT"; }
         void SetK(double K_){K=K_;}
+        double GetK(){return K;}
         int GetInputGridParameters();
         int GetDefaultGridParameters();
         double Payoff(double z);
@@ -65,6 +68,45 @@ class KnockOutCall: public Call {
         int GetInputGridParameters();
         int GetDefaultGridParameters();
         double Payoff(double z);
+};
+
+class CallSpread {
+    Call CallLong;
+    Call CallShort;
+    public:
+        friend std::string to_string(const CallSpread& x) { return "CallSpread"; }
+        void SetK(double Kl_, double Ks_) {
+            CallLong.SetK(Kl_);
+            CallShort.SetK(Ks_);
+        };
+        double GetK() {
+            double Ks[] = {CallLong.GetK(), CallShort.GetK()};
+            return *Ks;
+        }
+        string GetKasString() {
+            string buffer;
+            format_to(
+                std::back_inserter(buffer),
+                "Kl={0:.1f}, Ks={1:.1f}",
+                CallLong.GetK(), CallShort.GetK()
+            );
+            return buffer;
+        }
+        void SetN(double N) {
+            CallLong.SetN(N);
+            CallShort.SetN(N);
+        };
+        int GetDefaultGridParameters();
+        double Payoff(double z) {
+            return CallLong.Payoff(z) - CallShort.Payoff(z);
+        };
+
+        double PriceByCRR(BinModel Model) {
+            return CallLong.PriceByCRR(Model) - CallShort.PriceByCRR(Model);
+        };
+        double PriceBySnell(BinModel Model) {
+            return CallLong.PriceBySnell(Model) - CallShort.PriceBySnell(Model);
+        }
 };
 
 #endif //OPTIONS08_H
