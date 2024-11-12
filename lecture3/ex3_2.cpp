@@ -16,9 +16,8 @@ int main()
     KnockOutCall KnockOutCallOption;
     Call CallOption;
 
-    // Option.GetInputGridParameters();
-    KnockOutCallOption.GetDefaultGridParameters();
     CallOption.GetDefaultGridParameters();
+    KnockOutCallOption.GetDefaultGridParameters();
 
     vector<double> StrikeRange;
     vector<double> KoEuropeanPVs;
