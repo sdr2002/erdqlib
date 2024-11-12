@@ -4,21 +4,21 @@
 #include <vector>
 #include <cstdlib>
 #include <ctime>
+#include "Model.h"
+
 using namespace std;
 
-typedef vector<double> SamplePath;
-
-class BSModel
+class BSModel: public virtual Model
 {
-public:
-    double S0;
-    double r;
-    double sigma;
+    public:
+        double sigma;
 
-    BSModel(double S0_, double r_, double sigma_)
-        : S0(S0_), r(r_), sigma(sigma_) { srand(time(NULL)); }
+        BSModel(double S0_, double r_, double sigma_)
+            : Model{S0_, r_}, sigma(sigma_) { srand(time(NULL)); }
 
-    void GenerateSamplePath(double T, int m, SamplePath& S);
+        void GenerateSamplePath(double T, int m, SamplePath& S) override;
+
+        string toString() { return "BSModel"; };
 };
 
 #endif

@@ -8,20 +8,19 @@ public:
     double T;
     int m;
 
-    PathDepOption(double T_, int m_) : T(T_), m(m_) {
-    }
+    PathDepOption(double T_, int m_) : T(T_), m(m_) {};
 
-    virtual double PriceByMC(BSModel Model, long N);
+    double PriceByMC(Model& Model, long N);
+    double PriceByMC(Model& Model, long N, vector<double>& Sterminals);
 
-    virtual double Payoff(SamplePath &S) = 0;
+    virtual double Payoff(SamplePath& S) = 0;
 };
 
 class ArthmAsianCall : public PathDepOption {
 public:
     double K;
 
-    ArthmAsianCall(double T_, double K_, int m_) : PathDepOption(T_, m_), K(K_) {
-    }
+    ArthmAsianCall(double T_, double K_, int m_) : PathDepOption(T_, m_), K(K_) {}
 
     double Payoff(SamplePath &S) override;
 };

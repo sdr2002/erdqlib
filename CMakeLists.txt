@@ -40,5 +40,10 @@ add_executable(city_ir_fx
         lecture4/PathDepOption01.cpp
         lecture4/PathDepOption01.h
         lecture4/Main.cpp
+        lecture4/OUModel.cpp
+        lecture4/OUModel.h
+        lecture4/ModelCommon.h
+        lecture4/Model.h
+        lecture4/ModelCommon.cpp
 
 )
