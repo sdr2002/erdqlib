@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.29)
+project(city_ir_fx)
+
+set(CMAKE_CXX_STANDARD 23)
+
+add_executable(city_ir_fx
+        binomial/lecture2/BinModel02.cpp
+        binomial/lecture2/BinModel02.h
+
+        binomial/lecture3/BinLattice02.h
+        binomial/lecture3/Options09.cpp
+        binomial/lecture3/Options09.h
+        binomial/lecture3/Main14.cpp
+        binomial/lecture3/ex3_2.cpp
+)

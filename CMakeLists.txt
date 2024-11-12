@@ -4,46 +4,46 @@ project(city_ir_fx)
 set(CMAKE_CXX_STANDARD 23)
 
 add_executable(city_ir_fx
-#        lecture1/BinModel01Sptr.cpp
-#        lecture1/BinModel01Sptr.h
-#        lecture1/Options03.cpp
-#        lecture1/Options03.h
-#        lecture1/ex1_8_singlescript.cpp
-#        lecture1/ex1_8.cpp
-#        lecture1/ex1_9.cpp
+#        binomial/lecture1/BinModel01Sptr.cpp
+#        binomial/lecture1/BinModel01Sptr.h
+#        binomial/lecture1/Options03.cpp
+#        binomial/lecture1/Options03.h
+#        binomial/lecture1/ex1_8_singlescript.cpp
+#        binomial/lecture1/ex1_8.cpp
+#        binomial/lecture1/ex1_9.cpp
+#
+#        binomial/lecture2/BinModel02.cpp
+#        binomial/lecture2/BinModel02.h
+#        binomial/lecture2/Options04.cpp
+#        binomial/lecture2/Options04.h
+#        binomial/lecture2/Main08.cpp
+#        binomial/lecture2/Options05.cpp
+#        binomial/lecture2/Options05.h
+#        binomial/lecture2/Main09.cpp
+#        binomial/lecture2/Options06.cpp
+#        binomial/lecture2/Options06.h
+#        binomial/lecture2/Main10.cpp
+#
+#        binomial/lecture3/Options07.cpp
+#        binomial/lecture3/Options07.h
+#        binomial/lecture3/Main12.cpp
+#        binomial/lecture3/Options08.cpp
+#        binomial/lecture3/Options08.h
+#        binomial/lecture3/BinLattice01.h
+#        binomial/lecture3/BinLattice02.h
+#        binomial/lecture3/Options09.cpp
+#        binomial/lecture3/Options09.h
+#        binomial/lecture3/Main14.cpp
+#        binomial/lecture3/ex3_2.cpp
 
-#        lecture2/BinModel02.cpp
-#        lecture2/BinModel02.h
-#        lecture2/Options04.cpp
-#        lecture2/Options04.h
-#        lecture2/Main08.cpp
-#        lecture2/Options05.cpp
-#        lecture2/Options05.h
-#        lecture2/Main09.cpp
-#        lecture2/Options06.cpp
-#        lecture2/Options06.h
-#        lecture2/Main10.cpp
-
-#        lecture3/Options07.cpp
-#        lecture3/Options07.h
-#        lecture3/Main12.cpp
-#        lecture3/Options08.cpp
-#        lecture3/Options08.h
-#        lecture3/BinLattice01.h
-#        lecture3/BinLattice02.h
-#        lecture3/Options09.cpp
-#        lecture3/Options09.h
-#        lecture3/Main14.cpp
-#        lecture3/ex3_2.cpp
-        lecture4/BSModel01.cpp
-        lecture4/BSModel01.h
-        lecture4/PathDepOption01.cpp
-        lecture4/PathDepOption01.h
-        lecture4/Main.cpp
-        lecture4/OUModel.cpp
-        lecture4/OUModel.h
-        lecture4/ModelCommon.h
-        lecture4/Model.h
-        lecture4/ModelCommon.cpp
-
+        montecarlo/BSModel01.cpp
+        montecarlo/BSModel01.h
+        montecarlo/PathDepOption01.cpp
+        montecarlo/PathDepOption01.h
+        montecarlo/Main.cpp
+        montecarlo/OUModel.cpp
+        montecarlo/OUModel.h
+        montecarlo/ModelCommon.h
+        montecarlo/Model.h
+        montecarlo/ModelCommon.cpp
 )
