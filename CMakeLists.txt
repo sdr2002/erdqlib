@@ -12,8 +12,8 @@ add_executable(city_ir_fx
 #        lecture1/ex1_8.cpp
 #        lecture1/ex1_9.cpp
 
-        lecture2/BinModel02.cpp
-        lecture2/BinModel02.h
+#        lecture2/BinModel02.cpp
+#        lecture2/BinModel02.h
 #        lecture2/Options04.cpp
 #        lecture2/Options04.h
 #        lecture2/Main08.cpp
@@ -30,10 +30,15 @@ add_executable(city_ir_fx
 #        lecture3/Options08.cpp
 #        lecture3/Options08.h
 #        lecture3/BinLattice01.h
-        lecture3/BinLattice02.h
-        lecture3/Options09.cpp
-        lecture3/Options09.h
+#        lecture3/BinLattice02.h
+#        lecture3/Options09.cpp
+#        lecture3/Options09.h
 #        lecture3/Main14.cpp
-        lecture3/ex3_2.cpp
+#        lecture3/ex3_2.cpp
+        lecture4/BSModel01.cpp
+        lecture4/BSModel01.h
+        lecture4/PathDepOption01.cpp
+        lecture4/PathDepOption01.h
+        lecture4/Main.cpp
 
 )
