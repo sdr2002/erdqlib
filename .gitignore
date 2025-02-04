@@ -1,3 +1,7 @@
+# Custom
+.env
+out/
+
 # Folders
 .idea
 cmake-build-debug
