@@ -6,7 +6,7 @@ from scipy.stats._stats_py import DescribeResult
 if __name__ == "__main__":
     # Define the path to the CSV file
     for dynamics_name in ["BSModel", "OUModel"]:
-        csv_fpath = f'../../lecture4/Sterminals_{dynamics_name}.csv'  # Replace with your actual file path
+        csv_fpath = f'../lecture4/Sterminals_{dynamics_name}.csv'  # Replace with your actual file path
 
         # Read the CSV file
         data = pd.read_csv(csv_fpath, header=None)
