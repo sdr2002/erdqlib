@@ -9,6 +9,15 @@
 
 using namespace std;
 
+/**
+ * @brief Evaluates option pricing using the Black-Scholes model dynamics.
+ *
+ * This function initializes the Black-Scholes model with given parameters,
+ * sets up European and Arithmetic Asian call options, and calculates their
+ * prices using Monte Carlo simulations.
+ *
+ * @return int Returns 0 upon successful execution.
+ */
 int evaluateWithBlackScholesDynamics()
 {
     cout << endl << "Running BSModel dynamics..." << endl;
@@ -32,6 +41,15 @@ int evaluateWithBlackScholesDynamics()
     return 0;
 }
 
+/**
+ * @brief Evaluates option pricing using the Ornstein-Uhlenbeck model dynamics.
+ *
+ * This function initializes the Ornstein-Uhlenbeck model with given parameters,
+ * sets up European and Arithmetic Asian call options, and calculates their
+ * prices using Monte Carlo simulations.
+ *
+ * @return int Returns 0 upon successful execution.
+ */
 int evaluateWithOrnsteinUhlenbeckDynamics()
 {
     cout << endl << "Running OUModel dynamics..." << endl;
@@ -55,6 +73,16 @@ int evaluateWithOrnsteinUhlenbeckDynamics()
     return 0;
 }
 
+/**
+ * @brief Renders option prices over a range of strike prices.
+ *
+ * This function iterates over a specified range of strike prices (K) and
+ * calculates the present values of European call options using the provided
+ * model dynamics. It outputs the results to the console and saves terminal
+ * stock prices to a CSV file.
+ *
+ * @param modelDynamics Reference to the model dynamics (e.g., BSModel or OUModel).
+ */
 void render_over_KRange(Model& modelDynamics) {
     // double T = 1.0 / 12.0, K = 100.0; // Expiry is 1 month.
     // int m = 30;                       // Daily observations for one month!
@@ -99,6 +127,15 @@ void render_over_KRange(Model& modelDynamics) {
 }
 
 
+/**
+ * @brief Entry point of the application.
+ *
+ * This function initializes the Ornstein-Uhlenbeck and Black-Scholes models,
+ * and invokes the `render_over_KRange` function to calculate and display
+ * option prices over a range of strike prices.
+ *
+ * @return int Returns 0 upon successful execution.
+ */
 int main() {
     // evaluateWithBlackScholesDynamics();
     // evaluateWithOrnsteinUhlenbeckDynamics();
