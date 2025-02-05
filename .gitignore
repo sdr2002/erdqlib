@@ -1,6 +1,7 @@
 # Custom
 .env
 out/
+toy/
 
 # Folders
 .idea
@@ -39,3 +40,109 @@ py/.idea
 *.exe
 *.out
 *.app
+
+# General
+
+# Ignore hidden system files
+.DS_Store
+Thumbs.db
+
+# Ignore backup and temporary files
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Python
+
+# Byte-compiled Python files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+env/
+venv/
+ENV/
+*.env
+*.venv
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Python packaging artifacts
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+
+# Jupyter Notebooks
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# C++ 
+
+# Object files, static libraries, and executables
+*.obj
+*.o
+*.lo
+*.a
+*.so
+*.out
+*.exe
+
+# CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+build/
+*.ninja
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+compile_commands.json
+
+# IDE/Editor-related
+
+# JetBrains (PyCharm, CLion, etc.)
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+
+# Eclipse
+.project
+.cproject
+.settings/
+
+# NetBeans
+nbproject/
+
+# Visual Studio
+*.sln
+*.vcxproj*
+*.suo
+*.user
+*.ncb
+*.db
+
+# Data
+
+# Ignore large files and sensitive data (customize as needed)
+*.csv
+*.tsv
+*.json
+*.parquet
+*.h5
+*.pickle
+
+# Miscellaneous
+
+# Ignore temporary OS files
+*.~lock.*
+*~
