@@ -1,14 +1,12 @@
 cmake_minimum_required(VERSION 3.28)
-
-# Create your executable like below 'toy' app.
-add_executable(toy hellocmake.cpp)
-target_link_libraries(toy CppqLibMonteCarlo)
-set_property(TARGET toy PROPERTY CXX_STANDARD 23)
-
 project(cppq VERSION 0.1.0 LANGUAGES CXX)
+
+# Create your executable like below 'hellocmake' app.
+add_executable(hellocmake hellocmake.cpp)
+set_property(TARGET hellocmake PROPERTY CXX_STANDARD 20)
+
 add_executable(montecarlo0 montecarlo0.cpp)
-target_link_libraries(montecarlo0 CppqLibMonteCarlo)
-set_property(TARGET montecarlo0 PROPERTY CXX_STANDARD 23)
+set_property(TARGET montecarlo0 PROPERTY CXX_STANDARD 20)
 
 ## C++ in VS Code: Building your Code with CMake - https://www.youtube.com/watch?v=_BWU5mWqVA4&t=22s
 #include(CTest)
@@ -60,3 +58,6 @@ add_library(CppqLibMonteCarlo SHARED
         montecarlo/Model.h
         montecarlo/ModelCommon.cpp
 )
+
+target_link_libraries(hellocmake CppqLibMonteCarlo)
+target_link_libraries(montecarlo0 CppqLibMonteCarlo)
