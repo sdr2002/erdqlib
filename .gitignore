@@ -1,7 +1,7 @@
 # Custom
 .env
-out/
-toy/
+**out/
+**toy/
 
 # Folders
 .idea

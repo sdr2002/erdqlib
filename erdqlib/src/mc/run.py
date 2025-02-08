@@ -1,5 +1,5 @@
-from erdqlib.pyq.mc.option import EuropeanOption
-from erdqlib.pyq.mc.dynamics import GeometricBrownianMotion
+from erdqlib.src.mc.option import EuropeanOption
+from erdqlib.src.mc.dynamics import GeometricBrownianMotion
 
 def main() -> None:
     """

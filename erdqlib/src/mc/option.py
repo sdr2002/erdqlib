@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from typing import Optional
-from erdqlib.pyq.mc.dynamics import Dynamics
+from erdqlib.src.mc.dynamics import Dynamics
 
 class Option(ABC):
     def __init__(self, K: float, r: float, dynamics: Dynamics) -> None:

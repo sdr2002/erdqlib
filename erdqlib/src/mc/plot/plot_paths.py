@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from erdqlib.pyq.mc.dynamics import GeometricBrownianMotion
+from erdqlib.src.mc.dynamics import GeometricBrownianMotion
 
 
 def compare_simulated_paths_with_adjusted_layout(dynamics, simulations, random_seed, T, num_paths=100):
