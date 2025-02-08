@@ -4,7 +4,7 @@
 
 #ifndef OPTIONS08_H
 #define OPTIONS08_H
-#include <format>
+
 #include "BinLattice02.h"
 #include "../lecture2/BinModel02.h"
 
@@ -132,15 +132,7 @@ class CallSpread: public virtual Option {
             double Ks[] = {CallLong.GetK(), CallShort.GetK()};
             return *Ks;
         }
-        string GetKasString() {
-            string buffer;
-            format_to(
-                std::back_inserter(buffer),
-                "Kl={0:.1f}, Ks={1:.1f}",
-                CallLong.GetK(), CallShort.GetK()
-            );
-            return buffer;
-        }
+        string GetKasString();
         void SetN(double N) {
             CallLong.SetN(N);
             CallShort.SetN(N);

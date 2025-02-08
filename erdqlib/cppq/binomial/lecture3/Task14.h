@@ -1,18 +1,16 @@
-#include "BinLattice02.h"
+#ifndef TASK14_H
+#define TASK14_H
+
 #include "../lecture2/BinModel02.h"
+#include "BinLattice02.h"
 #include "Options09.h"
 #include <iostream>
 #include <string>
 using namespace std;
 
-int main()
+int display_putoption_tree(BinModel& Model, Put& Option)
 {
-    BinModel Model;
-
-//     if (Model.GetInputDynamicsParameters() == 1) return 1;
     if (Model.GetDefaultDynamicsParameters() == 1) return 1;
-
-    Put Option;
 
     // Option.GetInputGridParameters();
     Option.GetDefaultGridParameters();
@@ -30,3 +28,5 @@ int main()
 
     return 0;
 }
+
+#endif
