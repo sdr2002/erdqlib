@@ -1,6 +1,7 @@
 import logging
 from erdqlib.src.mc.option import EuropeanOption
 from erdqlib.src.mc.dynamics import GeometricBrownianMotion
+from erdqlib.src.mc.plot.plot_paths import compare_simulated_paths_with_adjusted_layout
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +39,30 @@ def pricing_ex0() -> None:
     LOGGER.info(f"European Call Option Price (GBM): {PV_GBM:.2f}")
     LOGGER.info(f"European Call Option Price (Alternative GBM): {PV_GBM_approx:.2f}")
 
+
+def plotting_ex0():
+    # Parameters for the simulation
+    random_seed: int = 153
+    n_paths: int = int(3e2)
+
+    # Parameters for the simulation
+    P0 = [100, 120]  # Initial prices for two assets
+    T = 3.0  # Time to maturity in years
+    dt = 0.01  # Time step size (in years)
+    vol = [0.2, 0.3]  # Annualized volatilities for each asset
+    drift = [0.05, 0.04]  # Annualized drift rates for each asset
+    correlation = [
+        [1.0, 0.8],
+        [0.8, 1.0]
+    ]  # Correlation matrix between the two assets
+
+    # Initialize dynamics object
+    dynamics = GeometricBrownianMotion(P0, T, dt, vol, drift, correlation)
+
+    # Plot paths for both simulate_paths and simulate_paths_dS in the same plot with adjusted layout
+    compare_simulated_paths_with_adjusted_layout(dynamics, n_paths, random_seed, T)
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    pricing_ex0()
+    plotting_ex0()
