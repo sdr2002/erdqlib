@@ -1,7 +1,11 @@
+import logging
 from erdqlib.src.mc.option import EuropeanOption
 from erdqlib.src.mc.dynamics import GeometricBrownianMotion
 
-def main() -> None:
+LOGGER = logging.getLogger(__name__)
+
+
+def pricing_ex0() -> None:
     """
     Example usage of the EuropeanOption and GeometricBrownianMotion classes.
     """
@@ -31,8 +35,9 @@ def main() -> None:
     PV_GBM_approx = option.calculate_PV(n_paths=n_paths, random_seed=random_seed, use_approx=True)
 
     # Output the results
-    print(f"European Call Option Price (GBM): {PV_GBM:.2f}")
-    print(f"European Call Option Price (Alternative GBM): {PV_GBM_approx:.2f}")
+    LOGGER.info(f"European Call Option Price (GBM): {PV_GBM:.2f}")
+    LOGGER.info(f"European Call Option Price (Alternative GBM): {PV_GBM_approx:.2f}")
 
 if __name__ == "__main__":
-    main()
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    pricing_ex0()
