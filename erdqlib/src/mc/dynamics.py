@@ -47,7 +47,7 @@ class GeometricBrownianMotion(Dynamics):
         paths = np.zeros((simulations, self.steps + 1, self.num_assets))
         paths[:, 0, :] = self.P0
         for t in range(1, self.steps + 1):
-            paths[:, t, :] = paths[:, t - 1, :] * (
-                1 + self.drift * self.dt + self.vol * dW[:, t - 1, :]
+            paths[:, t, :] = paths[:, t - 1, :] * np.exp(
+                self.drift * self.dt + self.vol * dW[:, t - 1, :]
             )
         return paths
