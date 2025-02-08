@@ -1,3 +1,6 @@
+#ifndef TASK_H
+#define TASK_H
+
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -120,29 +123,10 @@ void render_over_KRange(Model& modelDynamics) {
     }
 
     string fname = "Sterminals_" + modelDynamics.toString() +".csv";
-    ofstream SterminalsFile("/home/sdr2002/dev/city_irfx-cpp/lecture4/" + fname);
+    ofstream SterminalsFile("/home/sdr2002/dev/cpp/erdqlib/erdqlib/cppq/out/" + fname);
     ostream_iterator<double> out_it (SterminalsFile,"\n");
     copy(Sterminals.begin(), Sterminals.end(), out_it);
     cout << "Sterminals saved to " + fname << endl;
 }
 
-
-/**
- * @brief Entry point of the application.
- *
- * This function initializes the Ornstein-Uhlenbeck and Black-Scholes models,
- * and invokes the `render_over_KRange` function to calculate and display
- * option prices over a range of strike prices.
- *
- * @return int Returns 0 upon successful execution.
- */
-int main() {
-    // evaluateWithBlackScholesDynamics();
-    // evaluateWithOrnsteinUhlenbeckDynamics();
-
-    OUModel ouModel(100.0, 0.03, 0.045, 12*log(2), 0.2);
-    render_over_KRange(ouModel);
-
-    BSModel bsModel(100.0, 0.03, 0.2);
-    render_over_KRange(bsModel);
-}
+#endif //OUMODEL_H
