@@ -5,8 +5,9 @@ import numpy as np
 import scipy.stats as ss
 
 from erdqlib.src.mc.dynamics import ModelParameters
-from erdqlib.src.mc.option import OptionSide, OptionInfo, OptionType, price_montecarlo
+from erdqlib.src.mc.option import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
+from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 
 LOGGER = create_logger(__name__)
 

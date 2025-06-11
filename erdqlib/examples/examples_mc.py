@@ -5,9 +5,10 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
+from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.heston import HestonParameters, get_heston_paths, plot_heston_paths
 from erdqlib.src.mc.jump import JumpParameters, get_jump_paths, plot_jump_paths
-from erdqlib.src.mc.option import price_montecarlo, OptionType, OptionInfo, OptionSide, BarrierOptionInfo
+from erdqlib.src.mc.option import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)

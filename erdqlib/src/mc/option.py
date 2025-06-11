@@ -1,6 +1,4 @@
 import logging
-from dataclasses import dataclass
-from enum import StrEnum, auto
 
 import numpy as np
 import pandas as pd
@@ -8,6 +6,7 @@ from matplotlib import pyplot as plt
 from numpy.polynomial.polynomial import Polynomial
 from sklearn.metrics import r2_score
 
+from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.dynamics import ModelParameters
 
 logging.basicConfig(
@@ -16,31 +15,6 @@ logging.basicConfig(
     datefmt='%H:%M:%S'
 )
 LOGGER = logging.getLogger(__name__)
-
-
-class OptionSide(StrEnum):
-    CALL = auto()
-    PUT = auto()
-
-
-class OptionType(StrEnum):
-    EUROPEAN = auto()
-    AMERICAN = auto()
-    ASIAN = auto()
-    DOWNANDIN = auto()
-    UPANDIN = auto()
-
-
-@dataclass
-class OptionInfo:
-    type: OptionType
-    K: float  # strike price
-    side: OptionSide
-
-
-@dataclass
-class BarrierOptionInfo(OptionInfo):
-    barrier: float
 
 
 def price_montecarlo(
