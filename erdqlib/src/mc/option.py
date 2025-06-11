@@ -1,30 +1,148 @@
-from abc import ABC, abstractmethod
+import logging
+from dataclasses import dataclass
+from enum import StrEnum, auto
+
 import numpy as np
-from typing import Optional
-from erdqlib.src.mc.dynamics import Dynamics
+import pandas as pd
+from matplotlib import pyplot as plt
+from numpy.polynomial.polynomial import Polynomial
+from sklearn.metrics import r2_score
 
-class Option(ABC):
-    def __init__(self, K: float, r: float, dynamics: Dynamics) -> None:
-        self.K: float = K
-        self.r: float = r
-        self.dynamics: Dynamics = dynamics
+from erdqlib.src.mc.dynamics import ModelParameters
 
-    @abstractmethod
-    def payoff(self, prices: np.ndarray) -> np.ndarray:
-        raise NotImplementedError("Payoff method not implemented!")
+logging.basicConfig(
+    level=logging.INFO,
+    format='\033[97m[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s\033[0m',
+    datefmt='%H:%M:%S'
+)
+LOGGER = logging.getLogger(__name__)
 
-    def calculate_PV(self, n_paths: int = 10000, 
-                    random_seed: Optional[int] = None, 
-                    use_approx: bool = False) -> float:
-        if use_approx:
-            paths = self.dynamics.simulate_paths_approx(n_paths, random_seed)
-        else:
-            paths = self.dynamics.simulate_paths_exact(n_paths, random_seed)
-        payoffs = self.payoff(paths)
-        discounted_payoff = np.exp(-self.r * self.dynamics.T) * np.mean(payoffs)
-        return discounted_payoff
 
-class EuropeanOption(Option):
-    def payoff(self, prices: np.ndarray) -> np.ndarray:
-        terminal_prices = np.mean(prices[:, -1, :], axis=1)
-        return np.maximum(terminal_prices - self.K, 0)
+class OptionSide(StrEnum):
+    CALL = auto()
+    PUT = auto()
+
+
+class OptionType(StrEnum):
+    EUROPEAN = auto()
+    AMERICAN = auto()
+    ASIAN = auto()
+    DOWNANDIN = auto()
+    UPANDIN = auto()
+
+
+@dataclass
+class OptionInfo:
+    type: OptionType
+    K: float  # strike price
+    side: OptionSide
+
+
+@dataclass
+class BarrierOptionInfo(OptionInfo):
+    barrier: float
+
+
+def price_montecarlo(
+    Spath: np.ndarray, d: ModelParameters, o: OptionInfo,
+    t: float = 0., verbose: bool = False
+) -> float:
+    LOGGER.info(o.__dict__)
+    assert isinstance(o.side, OptionSide)
+
+    payoff: np.ndarray
+    match o.type:
+        case OptionType.EUROPEAN:
+            if o.side == OptionSide.CALL:
+                payoff = np.maximum(0, Spath[-1, :] - o.K)
+            else:
+                payoff = np.maximum(0, - Spath[-1, :] + o.K)
+        case OptionType.DOWNANDIN:
+            # Down-and-In payoff:
+            #   Payoff = European payoff * 1_{min S_path <= barrier}
+            #   payoff = max(S_T - K, 0) * 1_{min S_t ≤ B}  for calls,
+            #          = max(K - S_T, 0) * 1_{min S_t ≤ B}  for puts.
+            # Compute the indicator of barrier breach:
+            assert type(o) is BarrierOptionInfo
+            knock_in = (Spath.min(axis=0) <= o.barrier)
+            if o.side == OptionSide.CALL:
+                euro_payoff = np.maximum(0, Spath[-1, :] - o.K)
+            else:
+                euro_payoff = np.maximum(0, o.K - Spath[-1, :])
+            payoff = euro_payoff * knock_in
+        case OptionType.UPANDIN:
+            assert type(o) is BarrierOptionInfo
+            knock_in = (Spath.max(axis=0) >= o.barrier)
+            if o.side == OptionSide.CALL:
+                euro_payoff = np.maximum(0, Spath[-1, :] - o.K)
+            else:
+                euro_payoff = np.maximum(0, o.K - Spath[-1, :])
+            payoff = euro_payoff * knock_in
+        case OptionType.AMERICAN:
+            # Longstaff–Schwartz for American exercise:
+            dt = (d.T - t) / d.M
+            disc = np.exp(-d.r * dt)
+
+            # 1) Initialize cashflows at maturity:
+            if o.side == OptionSide.CALL:
+                cf = np.maximum(Spath[-1, :] - o.K, 0)
+            else:
+                cf = np.maximum(o.K - Spath[-1, :], 0)
+
+            # 2) Step backwards through t = M-1, ..., 1
+            if verbose:
+                np.set_printoptions(formatter={'float': lambda x: "{0:0.3g}".format(x)})
+                r2_list = []
+            for ti in range(d.M, 0, -1):
+                # discount next‐step cashflow back to time ti
+                cf *= disc
+
+                St = Spath[ti]
+                # immediate payoff if exercised at ti:
+                if o.side == OptionSide.CALL:
+                    intrinsic = np.maximum(St - o.K, 0)
+                else:
+                    intrinsic = np.maximum(o.K - St, 0)
+
+                # only regress on in‐the‐money paths
+                itm = intrinsic > 0
+                if np.any(itm):
+                    # fit a polynomial continuation value
+                    res: Polynomial = Polynomial.fit(
+                        x=St[itm],
+                        y=cf[itm],
+                        deg=5
+                    ) #.convert()
+
+                    # evaluate the fitted polynomial for continuation
+                    continuation = res(St[itm])
+
+                    if verbose:
+                        # compute and log fit performance
+                        r2: float = r2_score(y_true=cf[itm], y_pred=continuation)
+                        LOGGER.info(
+                            f"Polynomial fit MSE at step {ti}: (R2={r2:.3g} for N={int(np.sum(itm))}), by: {res.coef}"
+                        )
+                        r2_list.append(r2)
+
+                    # exercise if immediate payoff > continuation
+                    exercise = intrinsic[itm] > continuation
+                    cf[itm][exercise] = intrinsic[itm][exercise]
+
+            if verbose:
+                ax = pd.DataFrame({'R2': reversed(r2_list)}).plot()
+                ax.set_xlabel('Timestep')
+                ax.set_ylabel('R2')
+                ax.set_title('Longstaff R2 by timestamp')
+                plt.show()
+
+            # 3) After backward induction, CF is already discounted to time t
+            return cf.mean()
+        case _:
+            raise TypeError()
+
+    discount: float = np.exp(-d.r * (d.T - t))
+    average_payoff: float = np.mean(payoff)
+    return discount * average_payoff
+
+# TODO add greek calculators: delta, gamma, vega as functions just like price calculator
