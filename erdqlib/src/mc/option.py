@@ -6,12 +6,12 @@ from matplotlib import pyplot as plt
 from numpy.polynomial.polynomial import Polynomial
 from sklearn.metrics import r2_score
 
-from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
+from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
 from erdqlib.src.mc.dynamics import ModelParameters
 
 logging.basicConfig(
     level=logging.INFO,
-    format='\033[97m[%(asctime)s] {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s\033[0m',
+    format='\033[97m[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s\033[0m',
     datefmt='%H:%M:%S'
 )
 LOGGER = logging.getLogger(__name__)
@@ -82,6 +82,7 @@ def price_montecarlo(
                 itm = intrinsic > 0
                 if np.any(itm):
                     # fit a polynomial continuation value
+                    # Basis: [1, x, x^2, ..., x^degree] then apply np.linalg.lstsq, then weights__ @ basis__
                     res: Polynomial = Polynomial.fit(
                         x=St[itm],
                         y=cf[itm],

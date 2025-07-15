@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
-from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
+from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
 from erdqlib.src.mc.heston import HestonParameters, get_heston_paths, plot_heston_paths
 from erdqlib.src.mc.jump import JumpParameters, get_jump_paths, plot_jump_paths
 from erdqlib.src.mc.option import price_montecarlo
@@ -248,7 +248,7 @@ def q10():
     '''
 
 
-def _q15(S0: float, skip_plot: bool = True):
+def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
     """8. Using the Merton Model,
     price an ATM European call and an ATM European put with jump intensity parameter equal to 0.75.
     """
@@ -275,11 +275,11 @@ def _q15(S0: float, skip_plot: bool = True):
     for o_type in [OptionType.EUROPEAN, OptionType.DOWNANDIN]:
         if o_type == OptionType.EUROPEAN:
             o_info = OptionInfo(
-                type=OptionType.EUROPEAN, K=K, side=OptionSide.CALL,
+                type=OptionType.EUROPEAN, K=K, side=side,
             )
         elif o_type == OptionType.DOWNANDIN:
             o_info = BarrierOptionInfo(
-                type=OptionType.DOWNANDIN, K=K, side=OptionSide.CALL,
+                type=OptionType.DOWNANDIN, K=K, side=side,
                 barrier=barrier
             )
         else:
@@ -291,7 +291,7 @@ def _q15(S0: float, skip_plot: bool = True):
             o=o_info,
             t=0.
         )
-        LOGGER.info(f"{o_type} CALL: {option_price:.3g}")
+        LOGGER.info(f"{o_type} {side}: {option_price:.3g}")
 
         price_dict['type'].append(o_type)
         price_dict['side'].append(o_info.side)
@@ -304,8 +304,11 @@ def _q15(S0: float, skip_plot: bool = True):
 
 
 def q15(skip_plot=True):
-    _q15(S0=80., skip_plot=skip_plot)
-    _q15(S0=65., skip_plot=skip_plot)
+    _q15(S0=65., side=OptionSide.PUT, skip_plot=skip_plot)
+
+    _q15(S0=95., side=OptionSide.CALL, skip_plot=skip_plot)
+    _q15(S0=80., side=OptionSide.CALL, skip_plot=skip_plot)
+    _q15(S0=65., side=OptionSide.CALL, skip_plot=skip_plot)
 
 
 def q5(skip_plot: bool = True):
@@ -509,7 +512,7 @@ price the put). Comment on the differences you observe from original Questions
     if not skip_plot:
         plot_heston_paths(n=300, underlying_arr=S, variance_arr=V, h_params=h_params)
 
-    LOGGER.info(f"EUR CALL: {price_montecarlo(
+    LOGGER.info(f"AMR CALL: {price_montecarlo(
         Spath=S,
         d=h_params,
         o=OptionInfo(
@@ -519,7 +522,7 @@ price the put). Comment on the differences you observe from original Questions
         verbose=True
     )}")
 
-    LOGGER.info(f"EUR PUT: {price_montecarlo(
+    LOGGER.info(f"AMR PUT: {price_montecarlo(
         Spath=S,
         d=h_params,
         o=OptionInfo(
@@ -641,4 +644,8 @@ def q14(skip_plot=True):
 
 
 if __name__ == "__main__":
-    q13_1()
+    # TODO Q13_2 resolve the polynomial fit warning:
+    #    numpy/polynomial/polynomial.py:1476: RankWarning: The fit may be poorly conditioned
+    #    return pu._fit(polyvander, x, y, deg, rcond, full, w)
+    q13_2()
+    # q15()
