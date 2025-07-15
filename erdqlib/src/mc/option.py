@@ -53,7 +53,36 @@ def price_montecarlo(
                 euro_payoff = np.maximum(0, o.K - Spath[-1, :])
             payoff = euro_payoff * knock_in
         case OptionType.AMERICAN:
-            # Longstaff–Schwartz for American exercise:
+            """Least-Squares Monte Carlo for American options, regressing continuation from the *next*‐timestep values.
+        
+            Notation:
+              Δt = T/M
+              π_t^{(j)} = payoff at time t on path j
+              V_{t+1}^{(j)} = current estimate of option value at t+1 on path j
+        
+            Continuation:
+              C_t(S) = E[e^{-rΔt}·V_{t+1} | S_t = S].
+        
+            Regression at each t:
+              • X^{(j)} = S_t^{(j)}
+              • Y^{(j)} = D^{(j)} = e^{-rΔt}·V_{t+1}^{(j)}
+              Fit Y ≈ ∑_{k=0}^d a_k·(X)^k to learn coefficients a_k.
+        
+            Steps:
+              1) Initialize V_next[j] = π_T^{(j)} for all j.
+              2) For t = M−1 down to 1:
+                   a) D[j] = e^{-rΔt} · V_next[j]              # discount to time t
+                   b) I_t = {j | π_t^{(j)} > 0}               # in‐the‐money paths
+                   c) Regress {D[j]}_{j∈I_t} on basis of {S_t^{(j)}}_{j∈I_t} to get a_k.
+                   d) For each j:
+                        V_current[j] = max(π_t^{(j)}, D[j]) if j∈I_t
+                                       = D[j]               otherwise
+                   e) V_next = V_current
+              3) Return price ≈ mean( e^{-rΔt} · V_next ).
+        
+            Only ITM paths enter the regression, since only there
+            π_t and C_t compete in the exercise decision.
+            """
             dt = (d.T - t) / d.M
             disc = np.exp(-d.r * dt)
 
