@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Dict
 
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as ss
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
-from erdqlib.src.mc.dynamics import ModelParameters
+from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.mc.option import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
@@ -14,12 +14,52 @@ LOGGER = create_logger(__name__)
 
 
 @dataclass
-class HestonParameters(ModelParameters):
+class HestonDynamicsParameters(DynamicsParameters):
     v0: float
     kappa: float
     sigma: float
     theta: float
     rho: float
+
+    @staticmethod
+    def get_default_search_grid() -> Dict[str, Tuple[float, float, float]]:
+        eps: float = 1e-6
+        return {
+            "kappa": (2.5, 30. + eps, 5.0),
+            "theta": (0.001, 0.041 + eps, 0.01),
+            "sigma": (0.01, 0.251 + eps, 0.5),
+            "rho": (-0.9, 0.9 + eps, 0.2),
+            "v0": (0.01, 0.031 + eps, 0.01)
+        }
+
+    @staticmethod
+    def do_parameters_offbound(kappa_v, theta_v, sigma_v, rho, v0) -> bool:
+        return (
+                kappa_v < 0.0 or theta_v < 0.005 or sigma_v < 0.0
+                or rho < -1.0 or rho > 1.0 or v0 < 0.0
+                or 2 * kappa_v * theta_v < sigma_v ** 2
+        )
+
+    def get_bounded_parameters(self) -> "HestonDynamicsParameters":
+        """Return the parameters that are bounded and can be used for optimization."""
+        eps: float = 1e-6
+        return HestonDynamicsParameters(
+            S0=self.S0, r=self.r,
+            kappa=np.clip(self.kappa, eps, 0.5 * self.sigma ** 2 / self.theta),  # kappa must be positive
+            sigma=np.clip(self.sigma, eps, 1. - eps),  # sigma must be positive
+            theta=np.clip(self.theta, 0.005 + eps, 1. - eps),  # theta must be positive
+            rho=np.clip(self.rho, -1. + eps, 1 - eps),  # rho must be in (-1, 1)
+            v0=np.clip(self.v0, eps, 1. - eps),  # v0 must be positive
+        )
+
+    def get_values(self) -> Tuple[float, float, float, float, float]:
+        return self.kappa, self.theta, self.sigma, self.rho, self.v0
+
+
+@dataclass
+class HestonParameters(ModelParameters, HestonDynamicsParameters):
+    pass
+
 
 def heston_volatility(h_params: HestonParameters, cho_matrix: np.ndarray, rand: np.ndarray) -> np.ndarray:
     """Stochastic variance process for Heston model"""
@@ -35,14 +75,15 @@ def heston_volatility(h_params: HestonParameters, cho_matrix: np.ndarray, rand: 
             v[0] = h_params.v0
             continue
         ran = np.dot(cho_matrix, rand[:, t])[row]
-        next_v = v[t - 1] + h_params.kappa * (h_params.theta - v[t - 1]) * dt + np.sqrt(v[t - 1]) * h_params.sigma * ran * sdt
-        v[t] = np.maximum(0, next_v) # manual non-negative bound
+        next_v = v[t - 1] + h_params.kappa * (h_params.theta - v[t - 1]) * dt + np.sqrt(
+            v[t - 1]) * h_params.sigma * ran * sdt
+        v[t] = np.maximum(0, next_v)  # manual non-negative bound
     return v
 
 
 # Next, let's implement the classic **stochastic equation** for the underlying asset price evolution:
 def heston_underlying(
-    var_arr: np.ndarray, h_params: HestonParameters, cho_matrix: np.ndarray, rand: np.ndarray
+        var_arr: np.ndarray, h_params: HestonParameters, cho_matrix: np.ndarray, rand: np.ndarray
 ) -> np.ndarray:
     S: np.ndarray = h_params.create_zeros_state_matrix()
 
@@ -94,7 +135,7 @@ def plot_heston_paths(n: int, underlying_arr: np.ndarray, variance_arr: np.ndarr
     fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(14, 8))
 
     # Paths of underlying price
-    ax0 = axs[0,0]
+    ax0 = axs[0, 0]
     ax0.plot(range(len(underlying_arr)), underlying_arr[:, :n])
     ax0.grid()
     ax0.set_title("Heston Underlying Price paths")
@@ -102,7 +143,7 @@ def plot_heston_paths(n: int, underlying_arr: np.ndarray, variance_arr: np.ndarr
     ax0.set_ylabel("Price")
 
     # Distribution of final Log return of underlying price
-    ax2 = axs[1,0]
+    ax2 = axs[1, 0]
 
     logr_last: np.ndarray = np.log(underlying_arr[-1, :] / h_params.S0)
     q5 = np.quantile(logr_last, 0.05)
@@ -121,19 +162,19 @@ def plot_heston_paths(n: int, underlying_arr: np.ndarray, variance_arr: np.ndarr
     ax2.legend()
 
     # Paths of variance of underlying price
-    ax1 = axs[0,1]
+    ax1 = axs[0, 1]
     ax1.plot(range(len(variance_arr)), variance_arr[:, :n])
     ax1.grid()
     ax1.set_title("Heston Variance paths")
     ax1.set_ylabel("Variance")
     ax1.set_xlabel("Timestep")
 
-    ax3 = axs[1,1]
+    ax3 = axs[1, 1]
     var_last = variance_arr[-1, :]
     ax3.hist(
         var_last, density=True, bins=500
     )
-    ax3.axvline(x=h_params.sigma**2, color='black', linestyle='--', label='sigma^2')
+    ax3.axvline(x=h_params.sigma ** 2, color='black', linestyle='--', label='sigma^2')
     x_var: np.ndarray = np.linspace(var_last.min(), var_last.max(), 500)
     ax3.plot(
         x_var, ss.lognorm.pdf(x_var, *ss.lognorm.fit(var_last, floc=0)),
@@ -149,18 +190,18 @@ if __name__ == "__main__":
     # Now we have all the ingredients to generate the paths for both asset price and its volatility:
 
     h_params: HestonParameters = HestonParameters(
-        v0 = 0.04,
-        kappa = 2,
-        sigma = 0.3,
-        theta = 0.04,
-        rho = -0.9,
+        v0=0.04,
+        kappa=2,
+        sigma=0.3,
+        theta=0.04,
+        rho=-0.9,
 
-        S0 = 100,  # Current underlying asset price
-        r = 0.05,  # Risk-free rate
+        S0=100,  # Current underlying asset price
+        r=0.05,  # Risk-free rate
 
-        T = 1,  # Number of years
-        M = 500,  # Total time steps
-        I = 10000,  # Number of simulations
+        T=1,  # Number of years
+        M=500,  # Total time steps
+        I=10000,  # Number of simulations
         random_seed=0
     )
 
@@ -184,4 +225,3 @@ if __name__ == "__main__":
         ),
         t=0.
     )}")
-
