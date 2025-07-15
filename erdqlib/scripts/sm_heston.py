@@ -1,11 +1,15 @@
-
-from typing import List
+from typing import List, Tuple, Dict
 
 import numpy as np
 import pandas as pd
 from scipy.integrate import quad
 from scipy.optimize import brute, fmin
+
 from erdqlib.src.common.option import OptionSide
+from erdqlib.src.mc.heston import HestonDynamicsParameters
+from erdqlib.tool.logger_util import create_logger
+
+LOGGER = create_logger(__name__)
 
 
 def H93_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0):
@@ -31,25 +35,25 @@ def H93_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0):
     # constants
     c1 = kappa_v * theta_v
     c2 = -np.sqrt(
-        (rho * sigma_v * u * 1j - kappa_v)**2
-        - sigma_v**2 * (-u * 1j - u**2)
+        (rho * sigma_v * u * 1j - kappa_v) ** 2
+        - sigma_v ** 2 * (-u * 1j - u ** 2)
     )
     c3 = (kappa_v - rho * sigma_v * u * 1j + c2) / (
-         kappa_v - rho * sigma_v * u * 1j - c2
+            kappa_v - rho * sigma_v * u * 1j - c2
     )
 
     # H1 and H2
     H1 = (
-        1j * r * u * T
-        + (c1 / sigma_v**2) * (
-            (kappa_v - rho * sigma_v * u * 1j + c2)*T
-            - 2 * np.log((1 - c3 * np.exp(c2 * T)) / (1 - c3))
-        )
+            1j * r * u * T
+            + (c1 / sigma_v ** 2) * (
+                    (kappa_v - rho * sigma_v * u * 1j + c2) * T
+                    - 2 * np.log((1 - c3 * np.exp(c2 * T)) / (1 - c3))
+            )
     )
     H2 = (
-        (kappa_v - rho * sigma_v * u * 1j + c2)
-        / sigma_v**2
-        * ((1 - np.exp(c2 * T)) / (1 - c3 * np.exp(c2 * T)))
+            (kappa_v - rho * sigma_v * u * 1j + c2)
+            / sigma_v ** 2
+            * ((1 - np.exp(c2 * T)) / (1 - c3 * np.exp(c2 * T)))
     )
 
     return np.exp(H1 + H2 * v0)
@@ -69,8 +73,7 @@ def H93_int_func(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0):
     """
     φ = H93_char_func(u - 0.5j, T, r,
                       kappa_v, theta_v, sigma_v, rho, v0)
-    return (np.exp(1j * u * np.log(S0 / K)) * φ).real / (u**2 + 0.25)
-
+    return (np.exp(1j * u * np.log(S0 / K)) * φ).real / (u ** 2 + 0.25)
 
 
 def H93_eur_option_value(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, side: OptionSide):
@@ -115,7 +118,7 @@ def H93_eur_option_value(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, side: 
     raise ValueError(f"Invalid side: {side}")
 
 
-def H93_error_function(p0, df_options, i: List[int], min_MSE: List[float], s0: float, side: OptionSide):
+def H93_error_function(p0: np.ndarray, df_options, print_iter: List[int], min_MSE: List[float], s0: float, side: OptionSide):
     """Error function for parameter calibration via
     Lewis (2001) Fourier approach for Heston (1993).
     Parameters
@@ -124,7 +127,7 @@ def H93_error_function(p0, df_options, i: List[int], min_MSE: List[float], s0: f
         model parameters (kappa_v, theta_v, sigma_v, rho, v0)
     df_options: pd.DataFrame
         DataFrame with market option quotes
-    i: List[int]
+    print_iter: List[int]
         List to keep track of iterations
     min_MSE: List[float]
         List to keep track of minimum mean squared error
@@ -140,7 +143,7 @@ def H93_error_function(p0, df_options, i: List[int], min_MSE: List[float], s0: f
     kappa_v, theta_v, sigma_v, rho, v0 = p0
     if kappa_v < 0.0 or theta_v < 0.005 or sigma_v < 0.0 or rho < -1.0 or rho > 1.0:
         return 500.0
-    if 2 * kappa_v * theta_v < sigma_v**2:
+    if 2 * kappa_v * theta_v < sigma_v ** 2:
         return 500.0
     se = []
     for row, option in df_options.iterrows():
@@ -156,41 +159,66 @@ def H93_error_function(p0, df_options, i: List[int], min_MSE: List[float], s0: f
             v0,
             side
         )
-        se.append((model_value - option["Call"]) ** 2)
+        se.append((model_value - option[OptionSide.CALL.name]) ** 2)
     MSE = sum(se) / len(se)
     min_MSE[0] = min(min_MSE[0], MSE)
-    if i[0] % 25 == 0:
-        print("%4d |" % i[0], np.array(p0), "| %7.3f | %7.3f" % (MSE, min_MSE[0]))
-    i[0] += 1
+    if print_iter[0] % 25 == 0:
+        LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3f} | {min_MSE[0]:7.3f}")
+    print_iter[0] += 1
     return MSE
 
 
-def H93_calibration_full(df_options: pd.DataFrame, S0:float, side: OptionSide):
+def H93_calibration_full(
+        df_options: pd.DataFrame,
+        S0: float,
+        r: float,
+        side: OptionSide,
+        search_grid: Dict[str, Tuple[float, float, float]]
+) -> HestonDynamicsParameters:
     """Calibrates Heston (1993) stochastic volatility model to market quotes."""
     # First run with brute force
     # (scan sensible regions, for faster convergence)
     i = [0]
     min_MSE = [float(np.inf)]
 
+    LOGGER.info("Brute-force begins")
     p0 = brute(
-        lambda params, data=df_options, s0=S0, option_side=side: H93_error_function(params, data, i, min_MSE, s0, option_side),
+        lambda params, data=df_options, s0=S0, option_side=side: H93_error_function(
+            params, data, i, min_MSE, s0, option_side
+        ),
         (
-            (2.5, 10.6, 5.0),  # kappa_v
-            (0.01, 0.041, 0.01),  # theta_v
-            (0.05, 0.251, 0.1),  # sigma_v
-            (-0.75, 0.01, 0.25),  # rho
-            (0.01, 0.031, 0.01),
-        ),  # v0
+            search_grid['kappa'],  # kappa_v
+            search_grid['theta'],  # theta_v
+            search_grid['sigma'],  # sigma_v
+            search_grid['rho'],  # rho
+            search_grid['v0']  # v0
+        ),
         finish=None,
     )
 
     # Second run with local, convex minimization
     # (we dig deeper where promising results)
-    opt = fmin(
-        lambda params, data=df_options, s0=S0, option_side=side: H93_error_function(params, data, i, min_MSE, s0, option_side),
-        p0, xtol=0.000001, ftol=0.000001, maxiter=750, maxfun=900
-    )
-    return opt
+    LOGGER.info("Fmin begins")
+    p_opt = fmin(
+        lambda params, data=df_options, s0=S0, option_side=side: H93_error_function(
+            params, data, i, min_MSE, s0, option_side
+        ),
+        p0, xtol=0.000001, ftol=0.000001, maxiter=1000, maxfun=1000,
+        full_output=False, retall=False, disp=True
+    )  # type: np.ndarray
+    kappa_v, theta_v, sigma_v, rho, v0 = p_opt.tolist()
+
+    bounded_result: HestonDynamicsParameters = HestonDynamicsParameters(
+        S0=S0,
+        r=r,
+        v0=v0,
+        kappa=kappa_v,
+        sigma=sigma_v,
+        theta=theta_v,
+        rho=rho
+    ).get_bounded_parameters()
+    LOGGER.info(f"Calibration results:\n{bounded_result}")
+    return bounded_result
 
 
 def ex_pricing():
@@ -207,36 +235,51 @@ def ex_pricing():
     rho = 0.1
     v0 = 0.01
 
-    print(
+    LOGGER.info(
         "Heston (1993) Call Option Value:   $%10.4f "
         % H93_eur_option_value(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, side=OptionSide.CALL)
     )
+
+
+def load_option_data(path_str: str, S0: float, r: float) -> pd.DataFrame:
+    """Load option data from HDF5 file."""
+    h5 = pd.HDFStore(
+        path_str, "r"
+    )  # Place this file in the same directory before running the code
+    data = h5["data"]  # European call & put option data (3 maturities)
+    h5.close()
+
+    # Option Selection
+    tol = 0.02  # Tolerance level to select ATM options (percent around ITM/OTM options)
+    options = data[(np.abs(data["Strike"] - S0) / S0) < tol]
+    options = options.assign(**{dt_key: pd.to_datetime(options[dt_key]) for dt_key in ["Date", "Maturity"]})
+    options = options.rename(columns={c: c.upper() for c in ["Call", "Put"]})
+    # Adding Time-to-Maturity and constant short-rates
+    for row, option in options.iterrows():
+        T = (option["Maturity"] - option["Date"]).days / 365.0
+        options.loc[row, "T"] = T
+        options.loc[row, "r"] = r
+
+    return options
 
 
 def ex_calibration(path_str: str = r"./option_dataset.h5"):
     # Market Data from www.eurexchange.com
     # as of September 30, 2014
 
-    h5 = pd.HDFStore(
-        path_str, "r"
-    )  # Place this file in the same directory before running the code
-    data = h5["data"]  # European call & put option data (3 maturities)
-    h5.close()
     S0 = 3225.93  # EURO STOXX 50 level September 30, 2014
+    r = 0.02
 
-    # Option Selection
-    tol = 0.02  # Tolerance level to select ATM options (percent around ITM/OTM options)
-    options = data[(np.abs(data["Strike"] - S0) / S0) < tol]
-    options = options.assign(**{dt_key: pd.to_datetime(options[dt_key]) for dt_key in ["Date", "Maturity"]})
-
-    # Adding Time-to-Maturity and constant short-rates
-    for row, option in options.iterrows():
-        T = (option["Maturity"] - option["Date"]).days / 365.0
-        options.loc[row, "T"] = T
-        options.loc[row, "r"] = 0.02
-
+    df_options: pd.DataFrame = load_option_data(
+        path_str=path_str,
+        S0=S0,  # EURO STOXX 50 level September 30, 2014
+        r=r
+    )
     side: OptionSide = OptionSide.CALL
-    H93_calibration_full(df_options=options, S0=S0, side=side)
+    H93_calibration_full(
+        df_options=df_options, S0=S0, r=r, side=side,
+        search_grid=HestonDynamicsParameters.get_default_search_grid()
+    )
 
 
 if __name__ == "__main__":

@@ -3,7 +3,11 @@ import numpy as np
 import pandas as pd
 from scipy.integrate import quad
 from scipy.optimize import brute, fmin
+
 from erdqlib.src.common.option import OptionSide
+from erdqlib.tool.logger_util import create_logger
+
+LOGGER = create_logger(__name__)
 
 
 def M76_char_func(u, T, r, sigma, lamb, mu, delta):
@@ -42,7 +46,7 @@ def M76_integration_function(u, S0, K, T, r, sigma, lamb, mu, delta):
     return (np.exp(1j * u * np.log(S0 / K)) * char).real / (u**2 + 0.25)
 
 
-def M76_call_value(S0, K, T, r, sigma, lamb, mu, delta, side: OptionSide):
+def M76_eur_option_value(S0, K, T, r, sigma, lamb, mu, delta, side: OptionSide):
     """
     Value of the European option under Lewis (2001) for Merton'76 jump diffusion model.
     Supports both CALL and PUT via OptionSide.
@@ -71,7 +75,7 @@ def M76_error_function(p0, options, S0, side: OptionSide, print_iter=None, min_R
         return 500.0
     se = []
     for _, option in options.iterrows():
-        model_value = M76_call_value(
+        model_value = M76_eur_option_value(
             S0, option["Strike"], option["T"], option["r"], sigma, lamb, mu, delta, side
         )
         se.append((model_value - option[side.name]) ** 2)
@@ -80,6 +84,7 @@ def M76_error_function(p0, options, S0, side: OptionSide, print_iter=None, min_R
         min_RMSE[0] = min(min_RMSE[0], RMSE)
     if print_iter is not None:
         if print_iter[0] % 50 == 0:
+            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3f} | {min_MSE[0]:7.3f}")
             print("%4d |" % print_iter[0], np.array(p0), "| %7.3f | %7.3f" % (RMSE, min_RMSE[0]))
         print_iter[0] += 1
     return RMSE
@@ -110,7 +115,7 @@ def generate_plot(opt, options, S0, side: OptionSide):
     options = options.copy()
     options["Model"] = 0.0
     for row, option in options.iterrows():
-        options.loc[row, "Model"] = M76_call_value(
+        options.loc[row, "Model"] = M76_eur_option_value(
             S0, option["Strike"], option["T"], option["r"], sigma, lamb, mu, delta, side
         )
     mats = sorted(set(options["Maturity"]))
@@ -133,7 +138,7 @@ def ex_pricing():
     mu = -0.2
     delta = 0.1
     for side in [OptionSide.CALL, OptionSide.PUT]:
-        value = M76_call_value(S0, K, T, r, sigma, lamb, mu, delta, side)
+        value = M76_eur_option_value(S0, K, T, r, sigma, lamb, mu, delta, side)
         print(f"Value of the {side.name} option under Merton (1976) is:  ${value}")
 
 def ex_calibration(path_str="option_data_M2.h5", side: OptionSide = OptionSide.CALL):
