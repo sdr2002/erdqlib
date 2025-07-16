@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
-from erdqlib.src.mc.heston import HestonParameters, get_heston_paths, plot_heston_paths
-from erdqlib.src.mc.jump import JumpParameters, get_jump_paths, plot_jump_paths
+from erdqlib.src.mc.heston import HestonParameters, Heston
+from erdqlib.src.mc.jump import JumpParameters, MertonJump
 from erdqlib.src.mc.option import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
@@ -43,12 +43,12 @@ def q8(skip_plot: bool = True):
         **COMMON_PARAMS
     )
 
-    S = get_jump_paths(j_params)
+    S = MertonJump.calculate_paths(j_params)
     if not skip_plot:
-        plot_jump_paths(n=300, underlying_arr=S, j_params=j_params)
+        MertonJump.plot_paths(n=300, paths=S, model_params=j_params, model_name=MertonJump.__name__, logy=True)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=j_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
@@ -57,7 +57,7 @@ def q8(skip_plot: bool = True):
     ):.3g}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=j_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
@@ -81,12 +81,12 @@ def q9(skip_plot: bool = True):
         **COMMON_PARAMS
     )
 
-    S = get_jump_paths(j_params)
+    S = MertonJump.calculate_paths(j_params)
     if not skip_plot:
-        plot_jump_paths(n=300, underlying_arr=S, j_params=j_params)
+        MertonJump.plot_paths(n=300, paths=S, model_params=j_params, model_name=MertonJump.__name__, logy=True)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=j_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
@@ -95,7 +95,7 @@ def q9(skip_plot: bool = True):
     ):.3g}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=j_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
@@ -130,10 +130,10 @@ def _delta_per_S0(
                     **dynamics_params
                 )
 
-                S: np.ndarray = get_jump_paths(j_params)
+                S: np.ndarray = MertonJump.calculate_paths(j_params)
 
                 option_price: float = price_montecarlo(
-                    Spath=S,
+                    underlying_path=S,
                     d=j_params,
                     o=OptionInfo(
                         type=option_type, K=K, side=side
@@ -265,9 +265,9 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
         **params_to_overide
     )
 
-    S = get_jump_paths(j_params)
+    S = MertonJump.calculate_paths(j_params)
     if not skip_plot:
-        plot_jump_paths(n=300, underlying_arr=S, j_params=j_params)
+        MertonJump.plot_paths(n=300, underlying_arr=S, j_params=j_params)
 
     K = barrier = 65.
 
@@ -286,7 +286,7 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
             raise ValueError()
 
         option_price: float = price_montecarlo(
-            Spath=S,
+            underlying_path=S,
             d=j_params,
             o=o_info,
             t=0.
@@ -328,12 +328,12 @@ def q5(skip_plot: bool = True):
         **COMMON_PARAMS
     )
 
-    V, S = get_heston_paths(h_params)
+    V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        plot_heston_paths(n=300, underlying_arr=S, variance_arr=V, h_params=h_params)
+        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=h_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
@@ -342,7 +342,7 @@ def q5(skip_plot: bool = True):
     )}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=h_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
@@ -369,12 +369,12 @@ def q6(skip_plot: bool = True):
         **COMMON_PARAMS
     )
 
-    V, S = get_heston_paths(h_params)
+    V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        plot_heston_paths(n=300, underlying_arr=S, variance_arr=V, h_params=h_params)
+        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=h_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
@@ -383,7 +383,7 @@ def q6(skip_plot: bool = True):
     )}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=h_params,
         o=OptionInfo(
             type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
@@ -419,10 +419,10 @@ def _delta_per_S0_q7(
                     **dynamics_params
                 )
 
-                V, S = get_heston_paths(h_params)
+                V, S = Heston.calculate_paths(h_params)
 
                 option_price: float = price_montecarlo(
-                    Spath=S,
+                    underlying_path=S,
                     d=h_params,
                     o=OptionInfo(
                         type=option_type, K=K, side=side
@@ -508,12 +508,12 @@ price the put). Comment on the differences you observe from original Questions
         **COMMON_PARAMS
     )
 
-    V, S = get_heston_paths(h_params)
+    V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        plot_heston_paths(n=300, underlying_arr=S, variance_arr=V, h_params=h_params)
+        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
 
     LOGGER.info(f"AMR CALL: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=h_params,
         o=OptionInfo(
             type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
@@ -523,7 +523,7 @@ price the put). Comment on the differences you observe from original Questions
     )}")
 
     LOGGER.info(f"AMR PUT: {price_montecarlo(
-        Spath=S,
+        underlying_path=S,
         d=h_params,
         o=OptionInfo(
             type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
@@ -599,9 +599,9 @@ def _q14(S0: float, skip_plot: bool = True):
         **params_to_overide
     )
 
-    V, S = get_heston_paths(h_params)
+    V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        plot_heston_paths(n=300, underlying_arr=S, variance_arr=V, h_params=h_params)
+        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
 
     K = barrier = 95.
 
@@ -621,7 +621,7 @@ def _q14(S0: float, skip_plot: bool = True):
                 raise ValueError()
 
             option_price: float = price_montecarlo(
-                Spath=S,
+                underlying_path=S,
                 d=h_params,
                 o=o_info,
                 t=0.
@@ -644,8 +644,21 @@ def q14(skip_plot=True):
 
 
 if __name__ == "__main__":
-    # TODO Q13_2 resolve the polynomial fit warning:
-    #    numpy/polynomial/polynomial.py:1476: RankWarning: The fit may be poorly conditioned
-    #    return pu._fit(polyvander, x, y, deg, rcond, full, w)
+    # Call all the questions functions below
+    q5(skip_plot=False)
+    q6(skip_plot=False)
+    q7()
+    q8(skip_plot=False)
+    q9(skip_plot=False)
+    q10()
+    q13_1(skip_plot=False)
+
+    '''
+    TODO Q13_2 resolve the polynomial fit warning:
+       numpy/polynomial/polynomial.py:1476: RankWarning: The fit may be poorly conditioned
+       return pu._fit(polyvander, x, y, deg, rcond, full, w)
+   '''
     q13_2()
-    # q15()
+
+    q15(skip_plot=False)
+    q14(skip_plot=False)
