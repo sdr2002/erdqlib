@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
-from erdqlib.src.mc.mc import MonteCarlo
+from erdqlib.src.mc.montecarlo import MonteCarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
