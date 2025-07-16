@@ -1,24 +1,19 @@
-import logging
-
 import numpy as np
 import pandas as pd
+import typing
 from matplotlib import pyplot as plt
 from numpy.polynomial.polynomial import Polynomial
 from sklearn.metrics import r2_score
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
 from erdqlib.src.mc.dynamics import ModelParameters
+from erdqlib.tool.logger_util import create_logger
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='\033[97m[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s\033[0m',
-    datefmt='%H:%M:%S'
-)
-LOGGER = logging.getLogger(__name__)
+LOGGER = create_logger(__name__)
 
 
 def price_montecarlo(
-    Spath: np.ndarray, d: ModelParameters, o: OptionInfo,
+    underlying_path: np.ndarray, d: ModelParameters, o: OptionInfo,
     t: float = 0., verbose: bool = False
 ) -> float:
     LOGGER.info(o.__dict__)
@@ -28,29 +23,31 @@ def price_montecarlo(
     match o.type:
         case OptionType.EUROPEAN:
             if o.side == OptionSide.CALL:
-                payoff = np.maximum(0, Spath[-1, :] - o.K)
+                payoff = np.maximum(0, underlying_path[-1, :] - o.K)
             else:
-                payoff = np.maximum(0, - Spath[-1, :] + o.K)
+                payoff = np.maximum(0, - underlying_path[-1, :] + o.K)
         case OptionType.DOWNANDIN:
+            o = typing.cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
             # Down-and-In payoff:
             #   Payoff = European payoff * 1_{min S_path <= barrier}
             #   payoff = max(S_T - K, 0) * 1_{min S_t ≤ B}  for calls,
             #          = max(K - S_T, 0) * 1_{min S_t ≤ B}  for puts.
             # Compute the indicator of barrier breach:
             assert type(o) is BarrierOptionInfo
-            knock_in = (Spath.min(axis=0) <= o.barrier)
+            knock_in = (underlying_path.min(axis=0) <= o.barrier)
             if o.side == OptionSide.CALL:
-                euro_payoff = np.maximum(0, Spath[-1, :] - o.K)
+                euro_payoff = np.maximum(0, underlying_path[-1, :] - o.K)
             else:
-                euro_payoff = np.maximum(0, o.K - Spath[-1, :])
+                euro_payoff = np.maximum(0, o.K - underlying_path[-1, :])
             payoff = euro_payoff * knock_in
         case OptionType.UPANDIN:
+            o = typing.cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
             assert type(o) is BarrierOptionInfo
-            knock_in = (Spath.max(axis=0) >= o.barrier)
+            knock_in = (underlying_path.max(axis=0) >= o.barrier)
             if o.side == OptionSide.CALL:
-                euro_payoff = np.maximum(0, Spath[-1, :] - o.K)
+                euro_payoff = np.maximum(0, underlying_path[-1, :] - o.K)
             else:
-                euro_payoff = np.maximum(0, o.K - Spath[-1, :])
+                euro_payoff = np.maximum(0, o.K - underlying_path[-1, :])
             payoff = euro_payoff * knock_in
         case OptionType.AMERICAN:
             """Least-Squares Monte Carlo for American options, regressing continuation from the *next*‐timestep values.
@@ -88,19 +85,19 @@ def price_montecarlo(
 
             # 1) Initialize cashflows at maturity:
             if o.side == OptionSide.CALL:
-                cf = np.maximum(Spath[-1, :] - o.K, 0)
+                cf = np.maximum(underlying_path[-1, :] - o.K, 0)
             else:
-                cf = np.maximum(o.K - Spath[-1, :], 0)
+                cf = np.maximum(o.K - underlying_path[-1, :], 0)
 
             # 2) Step backwards through t = M-1, ..., 1
+            r2_list: typing.List[float] = []
             if verbose:
-                np.set_printoptions(formatter={'float': lambda x: "{0:0.3g}".format(x)})
-                r2_list = []
+                np.set_printoptions(formatter={'float': lambda x: "{0:0.3g}".format(x)}) # type: ignore
             for ti in range(d.M, 0, -1):
                 # discount next‐step cashflow back to time ti
                 cf *= disc
 
-                St = Spath[ti]
+                St = underlying_path[ti]
                 # immediate payoff if exercised at ti:
                 if o.side == OptionSide.CALL:
                     intrinsic = np.maximum(St - o.K, 0)
@@ -143,10 +140,10 @@ def price_montecarlo(
             # 3) After backward induction, CF is already discounted to time t
             return cf.mean()
         case _:
-            raise TypeError()
+            raise TypeError(f"Unknown option type: {o.type}")
 
     discount: float = np.exp(-d.r * (d.T - t))
-    average_payoff: float = np.mean(payoff)
+    average_payoff: float = float(np.mean(payoff))
     return discount * average_payoff
 
 # TODO add greek calculators: delta, gamma, vega as functions just like price calculator
