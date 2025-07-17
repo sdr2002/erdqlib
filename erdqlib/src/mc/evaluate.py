@@ -1,3 +1,4 @@
+import warnings
 from dataclasses import dataclass
 from typing import List, Callable, cast
 
@@ -109,14 +110,16 @@ def price_montecarlo(
 
                 # only regress on in‐the‐money paths
                 itm = intrinsic > 0
-                if np.any(itm):
+                if sum(itm) >= 2: # at least 2 paths to regress on
                     # fit a polynomial continuation value
                     # Basis: [1, x, x^2, ..., x^degree] then apply np.linalg.lstsq, then weights__ @ basis__
-                    res: Polynomial = Polynomial.fit(
-                        x=St[itm],
-                        y=cf[itm],
-                        deg=5
-                    )  # .convert()
+                    with warnings.catch_warnings(record=True) as w:
+                        warnings.simplefilter("always", np.exceptions.RankWarning)
+                        res: Polynomial = Polynomial.fit(
+                            x=St[itm],
+                            y=cf[itm],
+                            deg=min(sum(itm)-1, 2) # degree of polynomial + 1 (bias dim) must be leq number of points
+                        )  # .convert()
 
                     # evaluate the fitted polynomial for continuation
                     continuation = res(St[itm])
@@ -149,8 +152,6 @@ def price_montecarlo(
     average_payoff: float = float(np.mean(payoff))
     return discount * average_payoff
 
-
-# TODO add greek calculators: delta, gamma, vega as functions just like price calculator
 
 @dataclass
 class DeltaResult:
@@ -196,3 +197,6 @@ def calculate_delta(
         o_up=float(perturb_o[0]),
         o_down=float(perturb_o[1]),
     )
+
+
+# TODO add greek calculators: gamma, vega as functions just like price calculator
