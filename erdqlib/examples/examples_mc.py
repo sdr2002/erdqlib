@@ -591,13 +591,6 @@ if __name__ == "__main__":
     q9(skip_plot=True)
     q10()
     q13_1(skip_plot=True)
-
-    '''
-    TODO Q13_2 resolve the polynomial fit warning:
-       numpy/polynomial/polynomial.py:1476: RankWarning: The fit may be poorly conditioned
-       return pu._fit(polyvander, x, y, deg, rcond, full, w)
-   '''
     q13_2()
-
     q15(skip_plot=True)
     q14(skip_plot=True)
