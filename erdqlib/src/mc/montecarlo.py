@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as ss
+from typing import Dict
 
 from erdqlib.src.mc.dynamics import ModelParameters
 
@@ -21,24 +22,24 @@ class MonteCarlo(ABC):
     @staticmethod
     def plot_paths(
             n: int,
-            paths: np.ndarray,
+            paths: Dict[str, np.ndarray],
             model_params: ModelParameters,
             model_name: str,
-            logy: bool = False,
-            *args, **kwargs
+            logy: bool = False
     ):
+        x_paths: np.ndarray = paths['x']
         fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(7, 8))
 
         # Paths of underlying price
         ax0 = axs[0]
-        ax0.plot(paths[:, :n])
+        ax0.plot(x_paths[:, :n])
         ax0.grid()
         ax0.set_title(f"{model_name} Underlying Price Paths")
         ax0.set_xlabel("Timestep")
         ax0.set_ylabel("Price")
 
         # Distribution of final (log) return of underlying price
-        y_arr = paths[-1, :] if not logy else np.log(paths[-1, :] / model_params.S0)
+        y_arr = x_paths[-1, :] if not logy else np.log(x_paths[-1, :] / model_params.S0)
         x = np.linspace(y_arr.min(), y_arr.max(), 500)
 
         ax1 = axs[1]

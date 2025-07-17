@@ -2,13 +2,12 @@ import copy
 from pprint import pformat
 from typing import Any, Dict, List
 
-import numpy as np
 import pandas as pd
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
+from erdqlib.src.mc.evaluate import price_montecarlo, calculate_delta, DeltaResult
 from erdqlib.src.mc.heston import HestonParameters, Heston
 from erdqlib.src.mc.jump import JumpParameters, MertonJump
-from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
@@ -45,7 +44,7 @@ def q8(skip_plot: bool = True):
 
     S = MertonJump.calculate_paths(j_params)
     if not skip_plot:
-        MertonJump.plot_paths(n=300, paths=S, model_params=j_params, model_name=MertonJump.__name__, logy=True)
+        MertonJump.plot_paths(n=300, paths={'x': S}, model_params=j_params, model_name=MertonJump.__name__, logy=True)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
@@ -83,7 +82,7 @@ def q9(skip_plot: bool = True):
 
     S = MertonJump.calculate_paths(j_params)
     if not skip_plot:
-        MertonJump.plot_paths(n=300, paths=S, model_params=j_params, model_name=MertonJump.__name__, logy=True)
+        MertonJump.plot_paths(n=300, paths={'x': S}, model_params=j_params, model_name=MertonJump.__name__, logy=True)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
@@ -104,22 +103,25 @@ def q9(skip_plot: bool = True):
     ):.3g}")
 
 
+def replace_params_map(original_params: Dict[str, Any], s0: float) -> Dict[str, Any]:
+    dynamics_params: Dict[str, Any] = copy.deepcopy(original_params)
+    dynamics_params['S0'] = s0
+    return dynamics_params
+
+
 def _delta_per_S0(
         Sinit: float, K: float, ud_ratio: float, lambd_list: List[float], option_type: OptionType = OptionType.EUROPEAN
-) -> Dict[OptionSide, Dict[float, Dict[float, float]]]:
+) -> Dict[OptionSide, Dict[float, DeltaResult]]:
     pricing_dict = {}
     for side in OptionSide:
         per_lambda_dict = {}
         for lambd in lambd_list:
             # Vary S0 by 1% on both up/down side - note it's not 1bps but 1% for numerical stability
-            perturb_dict = {}
-            perturb_s = [Sinit * (1. - ud_ratio), Sinit * (1. + ud_ratio)]
-            perturb_o = []
-            for S0 in perturb_s:
-                dynamics_params = copy.deepcopy(COMMON_PARAMS)
-                dynamics_params['S0'] = S0
-
-                j_params: JumpParameters = JumpParameters(
+            delta_per_lambda: DeltaResult = calculate_delta(
+                s0=Sinit, strike=K, option_type=option_type, side=side,
+                bump_ratio=ud_ratio,
+                model=MertonJump(),
+                model_params_creator= lambda s0: JumpParameters(
                     lambd=lambd,
                     mu=-0.5,
                     delta=0.22,
@@ -127,25 +129,10 @@ def _delta_per_S0(
                     M=500,  # Total time steps
                     I=10000,  # Number of simulations
                     random_seed=0,
-                    **dynamics_params
+                    **replace_params_map(COMMON_PARAMS, s0)
                 )
-
-                S: np.ndarray = MertonJump.calculate_paths(j_params)
-
-                option_price: float = price_montecarlo(
-                    underlying_path=S,
-                    d=j_params,
-                    o=OptionInfo(
-                        type=option_type, K=K, side=side
-                    ),
-                    t=0.
-                )
-
-                perturb_dict[S0] = option_price
-                perturb_o.append(option_price)
-
-            perturb_dict['delta'] = (perturb_o[1] - perturb_o[0]) / (perturb_s[1] - perturb_s[0])
-            per_lambda_dict[lambd] = perturb_dict
+            )
+            per_lambda_dict[lambd] = delta_per_lambda
 
         pricing_dict[side] = per_lambda_dict
 
@@ -165,26 +152,15 @@ def q10():
     ud_ratio: float = 0.05
     S0_list = [K * (1. - ud_ratio), K * (1. + ud_ratio)]
 
-    pricing_dict_delta = _delta_per_S0(Sinit=K, K=K, ud_ratio=ud_ratio, lambd_list=lambd_list, option_type=option_type)
-    '''
-{<OptionSide.CALL: 'call'>: {0.25: {79.2: np.float64(4.789952555672441),
-                                    80.8: np.float64(5.592979166793972),
-                                    'delta': np.float64(0.5018916319509588)},
-                             0.75: {79.2: np.float64(3.3941969793849016),
-                                    80.8: np.float64(4.002606389671839),
-                                    'delta': np.float64(0.38025588142933714)}},
- <OptionSide.PUT: 'put'>: {0.25: {79.2: np.float64(7.347448077028909),
-                                  80.8: np.float64(6.608049790453335),
-                                  'delta': np.float64(-0.4621239291097351)},
-                           0.75: {79.2: np.float64(11.530334389123613),
-                                  80.8: np.float64(10.709018737842372),
-                                  'delta': np.float64(-0.5133222820507772)}}}
-    '''
+    pricing_dict_delta: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0(
+        Sinit=K, K=K, ud_ratio=ud_ratio, lambd_list=lambd_list, option_type=option_type
+    )
     delta_dict = {'side': [], 'lambda': [], 'delta': []}
     for side in OptionSide:
         for lambd in lambd_list:
-            px_down: float = pricing_dict_delta[side][lambd][S0_list[0]]
-            px_up: float = pricing_dict_delta[side][lambd][S0_list[1]]
+            delta_result: DeltaResult = pricing_dict_delta[side][lambd]
+            px_down: float = delta_result.o_down
+            px_up: float = delta_result.o_up
 
             delta: float = (px_up - px_down) / (S0_list[1] - S0_list[0])
             delta_dict['side'].append(side)
@@ -193,45 +169,19 @@ def q10():
 
     LOGGER.info(f"\n{pd.DataFrame(delta_dict).to_markdown(index=False)}")
 
-    pricing_dict_down = _delta_per_S0(Sinit=S0_list[0], K=K, ud_ratio=ud_ratio, lambd_list=lambd_list,
-                                      option_type=option_type)
-    '''
-{<OptionSide.CALL: 'call'>: {0.25: {72.2: np.float64(2.1181858004349796),
-                                    79.8: np.float64(5.082475339679382),
-                                    'delta': np.float64(0.3900380972690006)},
-                             0.75: {72.2: np.float64(1.4264433950876434),
-                                    79.8: np.float64(3.6151771857863673),
-                                    'delta': np.float64(0.2879912882498323)}},
- <OptionSide.PUT: 'put'>: {0.25: {72.2: np.float64(11.423790249216312),
-                                  79.8: np.float64(7.061561524399438),
-                                  'delta': np.float64(-0.5739774637916943)},
-                           0.75: {72.2: np.float64(15.817627949187132),
-                                  79.8: np.float64(11.215167697437012),
-                                  'delta': np.float64(-0.6055868752302794)}}}
-    '''
+    pricing_dict_down: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0(
+        Sinit=S0_list[0], K=K, ud_ratio=ud_ratio, lambd_list=lambd_list, option_type=option_type
+    )
 
-    pricing_dict_up = _delta_per_S0(Sinit=S0_list[1], K=K, ud_ratio=ud_ratio, lambd_list=lambd_list,
-                                    option_type=option_type)
-    '''
-{<OptionSide.CALL: 'call'>: {0.25: {79.8: np.float64(5.082475339679382),
-                                    88.2: np.float64(10.112168503875601),
-                                    'delta': np.float64(0.5987729957376448)},
-                             0.75: {79.8: np.float64(3.6151771857863673),
-                                    88.2: np.float64(7.5535368610850435),
-                                    'delta': np.float64(0.46885234229746114)}},
- <OptionSide.PUT: 'put'>: {0.25: {79.8: np.float64(7.061561524399438),
-                                  88.2: np.float64(3.9935239756858136),
-                                  'delta': np.float64(-0.36524256532305027)},
-                           0.75: {79.8: np.float64(11.215167697437012),
-                                  88.2: np.float64(7.64747079950275),
-                                  'delta': np.float64(-0.42472582118264995)}}}
-    '''
+    pricing_dict_up: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0(
+        Sinit=S0_list[1], K=K, ud_ratio=ud_ratio, lambd_list=lambd_list, option_type=option_type
+    )
 
     gamma_dict = {'side': [], 'lambda': [], 'gamma': []}
     for side in OptionSide:
         for lambd in lambd_list:
-            delta_down: float = pricing_dict_down[side][lambd]['delta']
-            delta_up: float = pricing_dict_up[side][lambd]['delta']
+            delta_down: float = pricing_dict_down[side][lambd].delta
+            delta_up: float = pricing_dict_up[side][lambd].delta
 
             gamma: float = (delta_up - delta_down) / (S0_list[1] - S0_list[0])
             gamma_dict['side'].append(side)
@@ -267,7 +217,7 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
 
     S = MertonJump.calculate_paths(j_params)
     if not skip_plot:
-        MertonJump.plot_paths(n=300, underlying_arr=S, j_params=j_params)
+        MertonJump.plot_paths(n=300, paths={'x': S}, model_params=j_params, model_name=MertonJump.__name__, logy=True)
 
     K = barrier = 65.
 
@@ -330,7 +280,7 @@ def q5(skip_plot: bool = True):
 
     V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
+        Heston.plot_paths(n=300, paths={'x':S, 'var':V}, model_params=h_params, model_name=Heston.__name__)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
@@ -371,7 +321,7 @@ def q6(skip_plot: bool = True):
 
     V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
+        Heston.plot_paths(n=300, paths={'x': S, 'var': V}, model_params=h_params, model_name=Heston.__name__)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
@@ -393,21 +343,18 @@ def q6(skip_plot: bool = True):
 
 
 def _delta_per_S0_q7(
-    Sinit: float, K: float, ud_ratio: float, rho_list: List[float], option_type: OptionType = OptionType.EUROPEAN
-) -> Dict[OptionSide, Dict[float, Dict[float, float]]]:
+    s_init: float, strike: float, ud_ratio: float, rho_list: List[float], option_type: OptionType = OptionType.EUROPEAN
+) -> Dict[OptionSide, Dict[float, DeltaResult]]:
     pricing_dict = {}
     for side in OptionSide:
-        per_lambda_dict = {}
+        per_rho_dict = {}
         for rho in rho_list:
             # Vary S0 by 1% on both up/down side - note it's not 1bps but 1% for numerical stability
-            perturb_dict = {}
-            perturb_s = [Sinit * (1. - ud_ratio), Sinit * (1. + ud_ratio)]
-            perturb_o = []
-            for S0 in perturb_s:
-                dynamics_params = copy.deepcopy(COMMON_PARAMS)
-                dynamics_params['S0'] = S0
-
-                h_params: HestonParameters = HestonParameters(
+            delta_per_rho: DeltaResult = calculate_delta(
+                s0=s_init, strike=strike, option_type=option_type, side=side,
+                bump_ratio=ud_ratio,
+                model=Heston(),
+                model_params_creator=lambda s0: HestonParameters(
                     v0=0.032,
                     kappa=1.85,
                     theta=0.045,
@@ -416,27 +363,11 @@ def _delta_per_S0_q7(
                     M=500,  # Total time steps
                     I=10000,  # Number of simulations
                     random_seed=0,
-                    **dynamics_params
+                    **replace_params_map(COMMON_PARAMS, s0)
                 )
-
-                V, S = Heston.calculate_paths(h_params)
-
-                option_price: float = price_montecarlo(
-                    underlying_path=S,
-                    d=h_params,
-                    o=OptionInfo(
-                        type=option_type, K=K, side=side
-                    ),
-                    t=0.
-                )
-
-                perturb_dict[S0] = option_price
-                perturb_o.append(option_price)
-
-            perturb_dict['delta'] = (perturb_o[1] - perturb_o[0]) / (perturb_s[1] - perturb_s[0])
-            per_lambda_dict[rho] = perturb_dict
-
-        pricing_dict[side] = per_lambda_dict
+            )
+            per_rho_dict[rho] = delta_per_rho
+        pricing_dict[side] = per_rho_dict
 
     LOGGER.info(f"\n{pformat(pricing_dict)}")
     return pricing_dict
@@ -455,12 +386,14 @@ def q7():
     S0 = K * 0.9
     S0_list = [S0 * (1. - ud_ratio), S0 * (1. + ud_ratio)]
 
-    pricing_dict_delta = _delta_per_S0_q7(Sinit=S0, K=K, ud_ratio=ud_ratio, rho_list=rho_list, option_type=option_type)
+    pricing_dict_delta: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0_q7(
+        s_init=S0, strike=K, ud_ratio=ud_ratio, rho_list=rho_list, option_type=option_type
+    )
     delta_dict = {'side': [], 'rho': [], 'delta': []}
     for side in OptionSide:
         for rho in rho_list:
-            px_down: float = pricing_dict_delta[side][rho][S0_list[0]]
-            px_up: float = pricing_dict_delta[side][rho][S0_list[1]]
+            px_down: float = pricing_dict_delta[side][rho].s0_down
+            px_up: float = pricing_dict_delta[side][rho].s0_up
 
             delta: float = (px_up - px_down) / (S0_list[1] - S0_list[0])
             delta_dict['side'].append(side)
@@ -469,17 +402,19 @@ def q7():
 
     LOGGER.info(f"\n{pd.DataFrame(delta_dict).to_markdown(index=False)}")
 
-    pricing_dict_down = _delta_per_S0_q7(Sinit=S0_list[0], K=K, ud_ratio=ud_ratio, rho_list=rho_list,
+    pricing_dict_down: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0_q7(
+        s_init=S0_list[0], strike=K, ud_ratio=ud_ratio, rho_list=rho_list,
                                          option_type=option_type)
 
-    pricing_dict_up = _delta_per_S0_q7(Sinit=S0_list[1], K=K, ud_ratio=ud_ratio, rho_list=rho_list,
+    pricing_dict_up: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0_q7(
+        s_init=S0_list[1], strike=K, ud_ratio=ud_ratio, rho_list=rho_list,
                                        option_type=option_type)
 
     gamma_dict = {'side': [], 'rho': [], 'gamma': []}
     for side in OptionSide:
         for rho in rho_list:
-            delta_down: float = pricing_dict_down[side][rho]['delta']
-            delta_up: float = pricing_dict_up[side][rho]['delta']
+            delta_down: float = pricing_dict_down[side][rho].delta
+            delta_up: float = pricing_dict_up[side][rho].delta
 
             gamma: float = (delta_up - delta_down) / (S0_list[1] - S0_list[0])
             gamma_dict['side'].append(side)
@@ -510,7 +445,7 @@ price the put). Comment on the differences you observe from original Questions
 
     V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
+        Heston.plot_paths(n=300, paths={'x': S, 'var': V}, model_params=h_params, model_name=Heston.__name__)
 
     LOGGER.info(f"AMR CALL: {price_montecarlo(
         underlying_path=S,
@@ -542,13 +477,15 @@ def q13_2():
     S0 = K * 0.9
     S0_list = [S0 * (1. - ud_ratio), S0 * (1. + ud_ratio)]
 
-    pricing_dict_delta = _delta_per_S0_q7(Sinit=S0, K=K, ud_ratio=ud_ratio, rho_list=rho_list, option_type=OptionType.AMERICAN)
+    pricing_dict_delta: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0_q7(
+        s_init=S0, strike=K, ud_ratio=ud_ratio, rho_list=rho_list, option_type=OptionType.AMERICAN
+    )
 
     delta_dict = {'side': [], 'rho': [], 'delta': []}
     for side in OptionSide:
         for rho in rho_list:
-            px_down: float = pricing_dict_delta[side][rho][S0_list[0]]
-            px_up: float = pricing_dict_delta[side][rho][S0_list[1]]
+            px_down: float = pricing_dict_delta[side][rho].s0_down
+            px_up: float = pricing_dict_delta[side][rho].s0_up
 
             delta: float = (px_up - px_down) / (S0_list[1] - S0_list[0])
             delta_dict['side'].append(side)
@@ -557,17 +494,19 @@ def q13_2():
 
     LOGGER.info(f"\n{pd.DataFrame(delta_dict).to_markdown(index=False)}")
 
-    pricing_dict_down = _delta_per_S0_q7(Sinit=S0_list[0], K=K, ud_ratio=ud_ratio, rho_list=rho_list,
+    pricing_dict_down: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0_q7(
+        s_init=S0_list[0], strike=K, ud_ratio=ud_ratio, rho_list=rho_list,
                                          option_type=option_type)
 
-    pricing_dict_up = _delta_per_S0_q7(Sinit=S0_list[1], K=K, ud_ratio=ud_ratio, rho_list=rho_list,
+    pricing_dict_up: Dict[OptionSide, Dict[float, DeltaResult]] = _delta_per_S0_q7(
+        s_init=S0_list[1], strike=K, ud_ratio=ud_ratio, rho_list=rho_list,
                                        option_type=option_type)
 
     gamma_dict = {'side': [], 'rho': [], 'gamma': []}
     for side in OptionSide:
         for rho in rho_list:
-            delta_down: float = pricing_dict_down[side][rho]['delta']
-            delta_up: float = pricing_dict_up[side][rho]['delta']
+            delta_down: float = pricing_dict_down[side][rho].delta
+            delta_up: float = pricing_dict_up[side][rho].delta
 
             gamma: float = (delta_up - delta_down) / (S0_list[1] - S0_list[0])
             gamma_dict['side'].append(side)
@@ -601,7 +540,7 @@ def _q14(S0: float, skip_plot: bool = True):
 
     V, S = Heston.calculate_paths(h_params)
     if not skip_plot:
-        Heston.plot_paths(n=300, x_arr2d=S, v_arr2d=V, h_params=h_params)
+        Heston.plot_paths(n=300, paths={'x': S, 'var': V}, model_params=h_params, model_name=Heston.__name__)
 
     K = barrier = 95.
 
@@ -645,13 +584,13 @@ def q14(skip_plot=True):
 
 if __name__ == "__main__":
     # Call all the questions functions below
-    q5(skip_plot=False)
-    q6(skip_plot=False)
+    q5(skip_plot=True)
+    q6(skip_plot=True)
     q7()
-    q8(skip_plot=False)
-    q9(skip_plot=False)
+    q8(skip_plot=True)
+    q9(skip_plot=True)
     q10()
-    q13_1(skip_plot=False)
+    q13_1(skip_plot=True)
 
     '''
     TODO Q13_2 resolve the polynomial fit warning:
@@ -660,5 +599,5 @@ if __name__ == "__main__":
    '''
     q13_2()
 
-    q15(skip_plot=False)
-    q14(skip_plot=False)
+    q15(skip_plot=True)
+    q14(skip_plot=True)
