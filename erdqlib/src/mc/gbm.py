@@ -4,7 +4,7 @@ import numpy as np
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.dynamics import ModelParameters
-from erdqlib.src.mc.montecarlo import MonteCarlo
+from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
@@ -20,6 +20,10 @@ class Gbm(MonteCarlo):
 
     @staticmethod
     def sample_paths(g_params: GbmParameters, z: np.ndarray) -> np.ndarray:
+        """ Geometric Brownian motion process paths sampler
+        dX_t = r * X_t * dt + sigma * X_t * dW_t
+        X_t = X_0 * exp((r - 0.5 * sigma^2) * t + sigma * sqrt(t) * Z)
+        """
         dt: float = g_params.get_dt()
         sdt: float = np.sqrt(dt)
         x_arr2d: np.ndarray = g_params.create_zeros_state_matrix()

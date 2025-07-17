@@ -5,7 +5,7 @@ import numpy as np
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.dynamics import ModelParameters
-from erdqlib.src.mc.montecarlo import MonteCarlo
+from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
@@ -32,7 +32,12 @@ class JumpParameters(ModelParameters):
 class MertonJump(MonteCarlo):
 
     @staticmethod
-    def sample_paths(j_params: JumpParameters, z1: np.ndarray, z2: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def sample_paths(j_params: JumpParameters, z1: np.ndarray, z2: np.ndarray, j: np.ndarray) -> np.ndarray:
+        """Merton jump process paths sampler
+        dX_t = (r - rj - 0.5 * sigma^2) * X_t * dt + sigma * X_t * dW1_t + X_t^{-} * (N2(mu, delta^2) - 1) * dJ_t(lambda)
+            where rj = lambda * (exp(mu + 0.5 * delta^2) - 1)
+        X_t = X_0 * exp((r - rj - 0.5 * sigma^2) * t + sigma * sqrt(t) * Z1 + (exp(mu + delta * Z2) - 1) * J_t)
+        """
         rj: float = j_params.get_r_offset()
         dt: float = j_params.get_dt()
         sdt: float = np.sqrt(dt)
@@ -42,7 +47,7 @@ class MertonJump(MonteCarlo):
                 S[0] = j_params.S0
                 continue
             mult = np.exp((j_params.r - rj - 0.5 * j_params.sigma ** 2) * dt + j_params.sigma * sdt * z1[t])
-            mult += (np.exp(j_params.mu + j_params.delta * z2[t]) - 1) * y[t]
+            mult += (np.exp(j_params.mu + j_params.delta * z2[t]) - 1) * j[t]
             S[t] = S[t - 1] * mult
             S[t] = np.maximum(S[t], 1e-6)
         return S
@@ -50,8 +55,8 @@ class MertonJump(MonteCarlo):
     @staticmethod
     def calculate_paths(model_params: JumpParameters, *_, **__) -> np.ndarray:
         LOGGER.info(str(model_params.__dict__))
-        z1, z2, y = MertonJump.generate_random_numbers(model_params)
-        return MertonJump.sample_paths(model_params, z1, z2, y)
+        z1, z2, j = MertonJump.generate_random_numbers(model_params)
+        return MertonJump.sample_paths(model_params, z1, z2, j)
 
     @staticmethod
     def generate_random_numbers(model_params: JumpParameters) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -60,10 +65,10 @@ class MertonJump(MonteCarlo):
         z2 = np.random.standard_normal((model_params.M + 1, model_params.I))
         poisson_interval_intensity: float = model_params.get_interval_intensity()
         LOGGER.info(f'  {{lambda*dt={poisson_interval_intensity:.2g}}}')
-        y = np.random.poisson(poisson_interval_intensity, (model_params.M + 1, model_params.I))
-        if len(np.where(y > 0)[0]) == 0:
+        j = np.random.poisson(poisson_interval_intensity, (model_params.M + 1, model_params.I))
+        if len(np.where(j > 0)[0]) == 0:
             LOGGER.warning('  No jump generated')
-        return z1, z2, y
+        return z1, z2, j
 
 
 if __name__ == "__main__":

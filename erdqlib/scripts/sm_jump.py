@@ -32,6 +32,21 @@ def M76_char_func(u, T, r, sigma, lamb, mu, delta):
         * T
     )
 
+
+# Merton (1976) characteristic function
+def M76J_char_func(u, T, lamb, mu, delta):
+    """
+    Adjusted Characteristic function for Merton '76 model: Only jump component
+    """
+
+    omega = -lamb * (np.exp(mu + 0.5 * delta**2) - 1)
+    char_func_value = np.exp(
+        (1j * u * omega + lamb * (np.exp(1j * u * mu - u**2 * delta**2 * 0.5) - 1))
+        * T
+    )
+    return char_func_value
+
+
 def M76_integration_function(u, S0, K, T, r, sigma, lamb, mu, delta):
     r"""
     Integrand for the Lewis (2001) FFT pricing under Merton ’76 model.
@@ -84,7 +99,7 @@ def M76_error_function(p0, options, S0, side: OptionSide, print_iter=None, min_R
         min_RMSE[0] = min(min_RMSE[0], RMSE)
     if print_iter is not None:
         if print_iter[0] % 50 == 0:
-            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3f} | {min_MSE[0]:7.3f}")
+            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {RMSE:7.3f} | {min_RMSE[0]:7.3f}")
             print("%4d |" % print_iter[0], np.array(p0), "| %7.3f | %7.3f" % (RMSE, min_RMSE[0]))
         print_iter[0] += 1
     return RMSE

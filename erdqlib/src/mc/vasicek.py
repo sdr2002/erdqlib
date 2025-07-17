@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
-from erdqlib.src.mc.montecarlo import MonteCarlo
+from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
@@ -25,14 +25,13 @@ class Vasicek(MonteCarlo):
 
     @staticmethod
     def sample_paths(
-        v_params: VasicekParameters, z: np.ndarray
+            v_params: VasicekParameters, z: np.ndarray
     ) -> np.ndarray:
         """Vasicek process paths sampler
-
-        dr_t = k * (theta - r_t) * dt + sigma * sqrt(dt) * z_t
+        dX_t = k * (theta - X_t) * dt + sigma * dW_t
+        X_t = X_0 e^{-k*t} + theta * (1 - e^{-k*t}) + sigma * e^{-k*t} * integral_0^t e^{k*s} dW_s
         """
         dt: float = v_params.get_dt()
-        sdt: float = np.sqrt(dt)
 
         x_arr2d: np.ndarray = v_params.create_zeros_state_matrix()
         for t in range(0, v_params.M + 1):
@@ -40,8 +39,8 @@ class Vasicek(MonteCarlo):
                 x_arr2d[0] = v_params.S0
                 continue
 
-            dx: np.ndarray = v_params.k * (v_params.theta - x_arr2d[t - 1]) * dt + v_params.sigma * sdt * z[t]
-            x_arr2d[t] = x_arr2d[t - 1] + dx
+            x_arr2d[t] = x_arr2d[t - 1] * np.exp(-v_params.k * dt) + v_params.theta * (1 - np.exp(-v_params.k * dt)) + \
+                         v_params.sigma * np.sqrt((1 - np.exp(-2 * v_params.k * dt)) / (2 * v_params.k)) * z[t]
 
         return x_arr2d
 
@@ -57,16 +56,16 @@ class Vasicek(MonteCarlo):
 
 def example_vasicek():
     v_params: VasicekParameters = VasicekParameters(
-        T = 1.0,  # Maturity
-        M = 500,  # Number of paths for MC
-        I = 10_000,  # Number of steps
+        T=1.0,  # Maturity
+        M=500,  # Number of paths for MC
+        I=10_000,  # Number of steps
         random_seed=0,
 
-        S0 = 0.023,
-        k = 0.20,
-        theta = 0.01,
-        sigma = 0.012,
-        r = None,  # Risk-free rate
+        S0=0.023,
+        k=0.20,
+        theta=0.01,
+        sigma=0.0012,
+        r=None,  # Risk-free rate
     )
 
     rates = Vasicek.calculate_paths(v_params)

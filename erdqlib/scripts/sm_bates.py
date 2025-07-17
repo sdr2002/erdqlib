@@ -8,19 +8,13 @@ from scipy.optimize import brute, fmin
 
 from erdqlib.scripts.caculator import FtMethod
 from erdqlib.scripts.sm_heston import H93_char_func, H93_calibration_full, load_option_data
+from erdqlib.scripts.sm_jump import M76J_char_func
 from erdqlib.src.common.option import OptionSide
 from erdqlib.src.mc.heston import HestonDynamicsParameters
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
 
-
-def M76J_char_func(u, T, lamb, mu, delta):
-    """Jump component characteristic function for Merton '76 model."""
-    omega = -lamb * (np.exp(mu + 0.5 * delta**2) - 1)
-    return np.exp(
-        (1j * u * omega + lamb * (np.exp(1j * u * mu - 0.5 * u**2 * delta**2) - 1)) * T
-    )
 
 def B96_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):
     """Bates (1996) characteristic function."""

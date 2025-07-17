@@ -7,7 +7,7 @@ import scipy.stats as ss
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
-from erdqlib.src.mc.montecarlo import MonteCarlo
+from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
@@ -66,8 +66,10 @@ class Heston(MonteCarlo):
 
     @staticmethod
     def sample_variance_paths(h_params: HestonParameters, cho_matrix: np.ndarray, rand: np.ndarray) -> np.ndarray:
-        """Stochastic variance process for Heston model"""
-        # v_t = v_{t-1} + \kappa (\theta - v_{t-1})dt + \sigma \sqrt{v_{t-1}} dW^{(2)})t
+        """Stochastic variance process for Heston model
+        dv_t = kappa * (theta - v_t) dt + sigma * sqrt{v_t} dW^{(2)}_t
+        v_t = v_0 * exp(-kappa * t) + theta * (1 - exp(-kappa * t)) + sigma * exp(-kappa * t) * integral_0^t exp(kappa * s) * sqrt(v_s) dW2_s
+        """
         v_arr2d: np.ndarray = h_params.create_zeros_state_matrix()
 
         dt: float = h_params.get_dt()
@@ -88,6 +90,10 @@ class Heston(MonteCarlo):
     def sample_paths(
             var_arr: np.ndarray, h_params: HestonParameters, cho_matrix: np.ndarray, rand: np.ndarray
     ) -> np.ndarray:
+        """Heston model process paths sampler
+        dX_t = r * X_t * dt + sqrt{v_t} * X_t * dW1_t where d<W1, dW2> = rho * dt
+        X_t = X_0 * exp((r - 0.5 * v_t) * t + sqrt{v_t} * Z)
+        """
         x_arr2d: np.ndarray = h_params.create_zeros_state_matrix()
 
         dt: float = h_params.get_dt()
