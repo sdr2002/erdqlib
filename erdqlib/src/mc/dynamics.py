@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Self
+from typing import Self, Optional
 
 import numpy as np
 
@@ -30,7 +30,7 @@ class SamplingParameters:
 @dataclass
 class DynamicsParameters:
     S0: float # Current underlying asset price
-    r: float  # Risk-free rate
+    r: Optional[float]  # Risk-free rate
 
     def get_dynamics_parameters(self) -> Self:
         return DynamicsParameters(
