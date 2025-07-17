@@ -10,26 +10,26 @@ LOGGER = create_logger(__name__)
 
 
 @dataclass
-class VasicekDynamicsParameters(DynamicsParameters):
+class CirDynamicsParameters(DynamicsParameters):
     k: float
     theta: float
     sigma: float
 
 
 @dataclass
-class VasicekParameters(ModelParameters, VasicekDynamicsParameters):
+class CirParameters(ModelParameters, CirDynamicsParameters):
     pass
 
 
-class Vasicek(MonteCarlo):
+class Cir(MonteCarlo):
 
     @staticmethod
     def sample_paths(
-        v_params: VasicekParameters, z: np.ndarray
+        v_params: CirParameters, z: np.ndarray
     ) -> np.ndarray:
-        """Vasicek process paths sampler
-        dX_t = k * (theta - X_t) * dt + sigma * dW_t
-        X_t = X_0 e^{-k*t} + theta * (1 - e^{-k*t}) + sigma * e^{-k*t} * \int_0^t e^{k*s} dW_s
+        """Cox-Ingersoll-Ross process paths sampler
+        dX_t = k * (theta - X_t) * dt + sigma * sqrt(X_t) * dW_t
+        X_t = X_0 e^{-k*t} + theta * (1 - e^{-k*t}) + sigma * e^{-k*t} * \int_0^t e^{k*s} \sqrt(X_s) dW_s
         """
         dt: float = v_params.get_dt()
         sdt: float = np.sqrt(dt)
@@ -46,17 +46,17 @@ class Vasicek(MonteCarlo):
         return x_arr2d
 
     @staticmethod
-    def calculate_paths(model_params: VasicekParameters, *_, **__) -> np.ndarray:
+    def calculate_paths(model_params: CirParameters, *_, **__) -> np.ndarray:
         """Merton jump process paths sampler"""
         LOGGER.info(str(model_params.__dict__))
         z_arr2d: np.ndarray = MonteCarlo.generate_random_numbers(model_params=model_params)
 
-        x_arr2d: np.array = Vasicek.sample_paths(model_params, z_arr2d)
+        x_arr2d: np.array = Cir.sample_paths(model_params, z_arr2d)
         return x_arr2d
 
 
 def example_vasicek():
-    v_params: VasicekParameters = VasicekParameters(
+    v_params: CirParameters = CirParameters(
         T = 1.0,  # Maturity
         M = 500,  # Number of paths for MC
         I = 10_000,  # Number of steps
@@ -69,8 +69,8 @@ def example_vasicek():
         r = None,  # Risk-free rate
     )
 
-    rates = Vasicek.calculate_paths(v_params)
-    Vasicek.plot_paths(n=300, paths={'x': rates}, model_params=v_params, model_name=Vasicek.__name__, logy=False)
+    rates = Cir.calculate_paths(v_params)
+    Cir.plot_paths(n=300, paths={'x': rates}, model_params=v_params, model_name=Cir.__name__, logy=False)
 
 
 if __name__ == "__main__":
