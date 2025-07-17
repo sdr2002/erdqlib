@@ -25,23 +25,35 @@ class Cir(MonteCarlo):
 
     @staticmethod
     def sample_paths(
-        v_params: CirParameters, z: np.ndarray
+        c_params: CirParameters
     ) -> np.ndarray:
         """Cox-Ingersoll-Ross process paths sampler
         dX_t = k * (theta - X_t) * dt + sigma * sqrt(X_t) * dW_t
-        X_t = X_0 e^{-k*t} + theta * (1 - e^{-k*t}) + sigma * e^{-k*t} * \int_0^t e^{k*s} \sqrt(X_s) dW_s
+        X_t = X_0 e^{-k*t} + theta * (1 - e^{-k*t}) + sigma * e^{-k*t} * integral_0^t e^{k*s} sqrt(X_s) dW_s
         """
-        dt: float = v_params.get_dt()
-        sdt: float = np.sqrt(dt)
+        np.random.seed(seed=c_params.random_seed)
+        dt: float = c_params.get_dt()
 
-        x_arr2d: np.ndarray = v_params.create_zeros_state_matrix()
-        for t in range(0, v_params.M + 1):
+        x_arr2d: np.ndarray = c_params.create_zeros_state_matrix()
+        for t in range(0, c_params.M + 1):
             if t == 0:
-                x_arr2d[0] = v_params.S0
+                x_arr2d[0] = c_params.S0
                 continue
 
-            dx: np.ndarray = v_params.k * (v_params.theta - x_arr2d[t - 1]) * dt + v_params.sigma * sdt * z[t]
-            x_arr2d[t] = x_arr2d[t - 1] + dx
+            # inside your time‐stepping loop, at step t > 0:
+            exp_k_dt = np.exp(-c_params.k * dt)
+            # scale for non‐central χ²
+            c = c_params.sigma ** 2 * (1 - exp_k_dt) / (4 * c_params.k)
+            # degrees of freedom
+            df = 4 * c_params.k * c_params.theta / c_params.sigma ** 2
+            # non‐centrality parameter
+            nc = (
+                    x_arr2d[t - 1]
+                    * 4 * c_params.k * exp_k_dt
+                    / (c_params.sigma ** 2 * (1 - exp_k_dt))
+            )
+            # exact CIR update
+            x_arr2d[t] = c * np.random.noncentral_chisquare(df, nc)
 
         return x_arr2d
 
@@ -49,9 +61,7 @@ class Cir(MonteCarlo):
     def calculate_paths(model_params: CirParameters, *_, **__) -> np.ndarray:
         """Merton jump process paths sampler"""
         LOGGER.info(str(model_params.__dict__))
-        z_arr2d: np.ndarray = MonteCarlo.generate_random_numbers(model_params=model_params)
-
-        x_arr2d: np.array = Cir.sample_paths(model_params, z_arr2d)
+        x_arr2d: np.array = Cir.sample_paths(model_params)
         return x_arr2d
 
 
