@@ -34,7 +34,7 @@ class Gbm(MonteCarlo):
         return x_arr2d
 
     @staticmethod
-    def calculate_paths(model_params: GbmParameters) -> np.ndarray:
+    def calculate_paths(model_params: GbmParameters, *_, **__) -> np.ndarray:
         LOGGER.info(str(model_params.__dict__))
         np.random.seed(seed=model_params.random_seed)
         z_arr2d = MonteCarlo.generate_random_numbers(model_params=model_params)
@@ -56,7 +56,7 @@ def example_gbm():
     )
 
     S = Gbm.calculate_paths(g_params)
-    Gbm.plot_paths(n=300, paths=S, model_params=g_params, model_name=Gbm.__name__, logy=True)
+    Gbm.plot_paths(n=300, paths={'x': S}, model_params=g_params, model_name=Gbm.__name__, logy=True)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,

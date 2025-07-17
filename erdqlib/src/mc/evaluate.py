@@ -1,20 +1,23 @@
+from dataclasses import dataclass
+from typing import List, Callable, cast
+
 import numpy as np
 import pandas as pd
-import typing
 from matplotlib import pyplot as plt
 from numpy.polynomial.polynomial import Polynomial
 from sklearn.metrics import r2_score
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
 from erdqlib.src.mc.dynamics import ModelParameters
+from erdqlib.src.mc.montecarlo import MonteCarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
 
 
 def price_montecarlo(
-    underlying_path: np.ndarray, d: ModelParameters, o: OptionInfo,
-    t: float = 0., verbose: bool = False
+        underlying_path: np.ndarray, d: ModelParameters, o: OptionInfo,
+        t: float = 0., verbose: bool = False
 ) -> float:
     LOGGER.info(o.__dict__)
     assert isinstance(o.side, OptionSide)
@@ -27,7 +30,7 @@ def price_montecarlo(
             else:
                 payoff = np.maximum(0, - underlying_path[-1, :] + o.K)
         case OptionType.DOWNANDIN:
-            o = typing.cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
+            o = cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
             # Down-and-In payoff:
             #   Payoff = European payoff * 1_{min S_path <= barrier}
             #   payoff = max(S_T - K, 0) * 1_{min S_t ≤ B}  for calls,
@@ -41,7 +44,7 @@ def price_montecarlo(
                 euro_payoff = np.maximum(0, o.K - underlying_path[-1, :])
             payoff = euro_payoff * knock_in
         case OptionType.UPANDIN:
-            o = typing.cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
+            o = cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
             assert type(o) is BarrierOptionInfo
             knock_in = (underlying_path.max(axis=0) >= o.barrier)
             if o.side == OptionSide.CALL:
@@ -90,9 +93,9 @@ def price_montecarlo(
                 cf = np.maximum(o.K - underlying_path[-1, :], 0)
 
             # 2) Step backwards through t = M-1, ..., 1
-            r2_list: typing.List[float] = []
+            r2_list: List[float] = []
             if verbose:
-                np.set_printoptions(formatter={'float': lambda x: "{0:0.3g}".format(x)}) # type: ignore
+                np.set_printoptions(formatter={'float': lambda x: "{0:0.3g}".format(x)})  # type: ignore
             for ti in range(d.M, 0, -1):
                 # discount next‐step cashflow back to time ti
                 cf *= disc
@@ -113,7 +116,7 @@ def price_montecarlo(
                         x=St[itm],
                         y=cf[itm],
                         deg=5
-                    ) #.convert()
+                    )  # .convert()
 
                     # evaluate the fitted polynomial for continuation
                     continuation = res(St[itm])
@@ -146,4 +149,50 @@ def price_montecarlo(
     average_payoff: float = float(np.mean(payoff))
     return discount * average_payoff
 
+
 # TODO add greek calculators: delta, gamma, vega as functions just like price calculator
+
+@dataclass
+class DeltaResult:
+    s0_up: float
+    o_up: float
+    s0_down: float
+    o_down: float
+    delta: float
+
+
+def calculate_delta(
+        s0: float, strike: float, option_type: OptionType,
+        side: OptionSide, bump_ratio: float,
+        model: MonteCarlo,
+        model_params_creator: Callable[[float], ModelParameters]
+) -> DeltaResult:
+    """Calculate the delta of the option using finite difference approximation."""
+    perturb_dict = {}
+    perturb_s = [s0 * (1. - bump_ratio), s0 * (1. + bump_ratio)]
+    perturb_o = []
+    for bumped_s0 in perturb_s:
+        model_params = model_params_creator(bumped_s0)
+        s_arr2d: np.ndarray = model.calculate_paths(model_params, underlying_only=True)
+
+        option_price: float = price_montecarlo(
+            underlying_path=s_arr2d,
+            d=model_params,
+            o=OptionInfo(
+                type=option_type, K=strike, side=side
+            ),
+            t=0.
+        )
+
+        perturb_dict[bumped_s0] = option_price
+        perturb_o.append(option_price)
+
+    delta: float = (perturb_o[1] - perturb_o[0]) / (perturb_s[1] - perturb_s[0])
+    perturb_dict['delta'] = delta
+    return DeltaResult(
+        delta=float(delta),
+        s0_up=float(perturb_s[0]),
+        s0_down=float(perturb_s[1]),
+        o_up=float(perturb_o[0]),
+        o_down=float(perturb_o[1]),
+    )

@@ -105,7 +105,9 @@ class Heston(MonteCarlo):
         return x_arr2d
 
     @staticmethod
-    def calculate_paths(model_params: HestonParameters) -> Tuple[np.ndarray, np.ndarray]:
+    def calculate_paths(
+            model_params: HestonParameters, underlying_only: bool = False
+    ) -> Tuple[np.ndarray, np.ndarray] | np.ndarray:
         LOGGER.info(str(model_params.__dict__))
         rand_tensor, cho_matrix = Heston.generate_random_numbers(model_params)
 
@@ -118,7 +120,10 @@ class Heston(MonteCarlo):
         v_arr2d: np.ndarray = Heston.sample_variance_paths(model_params, cho_matrix=cho_matrix, rand=rand_tensor)
 
         # Underlying price process paths
-        x_arr2d: np.ndarray = Heston.sample_paths(var_arr=v_arr2d, h_params=model_params, cho_matrix=cho_matrix, rand=rand_tensor)
+        x_arr2d: np.ndarray = Heston.sample_paths(var_arr=v_arr2d, h_params=model_params, cho_matrix=cho_matrix,
+                                                  rand=rand_tensor)
+        if underlying_only:
+            return x_arr2d
         return v_arr2d, x_arr2d
 
     @staticmethod
@@ -138,24 +143,22 @@ class Heston(MonteCarlo):
     @staticmethod
     def plot_paths(
             n: int,
-            paths: np.ndarray,
+            paths: Dict[str, np.ndarray],
             model_params: HestonParameters,
             model_name: str,
-            logy: bool = False,
-            *args, **kwargs
+            logy: bool = False
     ):
         # Expect variance array as extra argument
-        v_arr2d = kwargs.get("variance", None)
-        if v_arr2d is None and len(args) > 0:
-            v_arr2d = args[0]
-        if v_arr2d is None:
+        x_paths = paths['x']
+        var_paths = paths['var']
+        if var_paths is None:
             raise ValueError("Variance array must be provided as an argument to plot_paths for Heston.")
 
         fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(14, 8))
 
         # Underlying price paths
         ax0 = axs[0, 0]
-        ax0.plot(range(len(paths)), paths[:, :n])
+        ax0.plot(range(len(x_paths)), x_paths[:, :n])
         ax0.grid()
         ax0.set_title(f"{model_name} Underlying Price paths")
         ax0.set_xlabel("Timestep")
@@ -163,7 +166,7 @@ class Heston(MonteCarlo):
 
         # Distribution of final log return
         ax2 = axs[1, 0]
-        logr_last = np.log(paths[-1, :] / model_params.S0)
+        logr_last = np.log(x_paths[-1, :] / model_params.S0)
         q5 = np.quantile(logr_last, 0.05)
         ax2.hist(
             logr_last, density=True, bins=500,
@@ -181,7 +184,7 @@ class Heston(MonteCarlo):
 
         # Variance paths
         ax1 = axs[0, 1]
-        ax1.plot(range(len(v_arr2d)), v_arr2d[:, :n])
+        ax1.plot(range(len(var_paths)), var_paths[:, :n])
         ax1.grid()
         ax1.set_title(f"{model_name} Variance paths")
         ax1.set_ylabel("Variance")
@@ -189,7 +192,7 @@ class Heston(MonteCarlo):
 
         # Distribution of final variance
         ax3 = axs[1, 1]
-        var_last = v_arr2d[-1, :]
+        var_last = var_paths[-1, :]
         ax3.hist(var_last, density=True, bins=500)
         ax3.axvline(x=model_params.sigma ** 2, color='black', linestyle='--', label='sigma^2')
         x_var = np.linspace(var_last.min(), var_last.max(), 500)
@@ -221,7 +224,9 @@ def example_heston():
     )
 
     V, S = Heston.calculate_paths(h_params)
-    Heston.plot_paths(n=300, paths=S, model_params=h_params, model_name=Heston.__name__, variance=V)
+    Heston.plot_paths(
+        n=300, paths={'x': S, 'var': V}, model_params=h_params, model_name=Heston.__name__
+    )
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,

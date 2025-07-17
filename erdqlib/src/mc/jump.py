@@ -48,7 +48,7 @@ class MertonJump(MonteCarlo):
         return S
 
     @staticmethod
-    def calculate_paths(model_params: JumpParameters) -> np.ndarray:
+    def calculate_paths(model_params: JumpParameters, *_, **__) -> np.ndarray:
         LOGGER.info(str(model_params.__dict__))
         z1, z2, y = MertonJump.generate_random_numbers(model_params)
         return MertonJump.sample_paths(model_params, z1, z2, y)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     )
 
     S = MertonJump.calculate_paths(j_params)
-    MertonJump.plot_paths(n=300, paths=S, model_params=j_params, model_name=MertonJump.__name__, logy=True)
+    MertonJump.plot_paths(n=300, paths={'x': S}, model_params=j_params, model_name=MertonJump.__name__, logy=True)
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,

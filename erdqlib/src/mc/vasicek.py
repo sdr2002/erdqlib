@@ -46,7 +46,7 @@ class Vasicek(MonteCarlo):
         return x_arr2d
 
     @staticmethod
-    def calculate_paths(model_params: VasicekParameters) -> np.ndarray:
+    def calculate_paths(model_params: VasicekParameters, *_, **__) -> np.ndarray:
         """Merton jump process paths sampler"""
         LOGGER.info(str(model_params.__dict__))
         z_arr2d: np.ndarray = MonteCarlo.generate_random_numbers(model_params=model_params)
@@ -70,7 +70,7 @@ def example_vasicek():
     )
 
     rates = Vasicek.calculate_paths(v_params)
-    Vasicek.plot_paths(n=300, paths=rates, model_params=v_params, model_name=Vasicek.__name__, logy=False)
+    Vasicek.plot_paths(n=300, paths={'x': rates}, model_params=v_params, model_name=Vasicek.__name__, logy=False)
 
 
 if __name__ == "__main__":
