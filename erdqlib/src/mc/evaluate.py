@@ -10,7 +10,7 @@ from sklearn.metrics import r2_score
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
 from erdqlib.src.mc.dynamics import ModelParameters
-from erdqlib.src.mc.montecarlo import MonteCarlo
+from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)

@@ -1,5 +1,9 @@
 # ERDQLIB
-Q-Quant library extending the code practices from Dr.Emiliano's City University course on Option for FX and IR by C++ course and World Quant University Derivative Pricing course. <br>
+Q-Quant library 
+
+# Reference
+1. Dr.Emiliano's City University course on Option for FX and IR by C++ course
+2. Professor Derivative Pricing and Stochastic modelling courses on World Quant University.
 
 # Environment
 - C++23 standard
