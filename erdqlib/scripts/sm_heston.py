@@ -71,9 +71,8 @@ def H93_int_func(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0):
       e^{i·u·ln(S₀/K)} · φ^H(u − i/2, T)
     divided by (u² + 1/4).
     """
-    φ = H93_char_func(u - 0.5j, T, r,
-                      kappa_v, theta_v, sigma_v, rho, v0)
-    return (np.exp(1j * u * np.log(S0 / K)) * φ).real / (u ** 2 + 0.25)
+    psi = H93_char_func(u - 0.5j, T, r, kappa_v, theta_v, sigma_v, rho, v0)
+    return (np.exp(1j * u * np.log(S0 / K)) * psi).real / (u ** 2 + 0.25)
 
 
 def H93_eur_option_value(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, side: OptionSide):
@@ -118,7 +117,9 @@ def H93_eur_option_value(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, side: 
     raise ValueError(f"Invalid side: {side}")
 
 
-def H93_error_function(p0: np.ndarray, df_options, print_iter: List[int], min_MSE: List[float], s0: float, side: OptionSide):
+def H93_error_function(
+        p0: np.ndarray, df_options, print_iter: List[int], min_MSE: List[float], s0: float, side: OptionSide
+) -> float:
     """Error function for parameter calibration via
     Lewis (2001) Fourier approach for Heston (1993).
     Parameters
