@@ -7,11 +7,13 @@ from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
 from erdqlib.scripts.caculator import FtMethod
-from erdqlib.scripts.sm_heston import H93_char_func, H93_calibration_full, load_option_data
+from erdqlib.scripts.sm_heston import H93_char_func, H93_calibration_full
 from erdqlib.scripts.sm_jump import M76J_char_func
-from erdqlib.src.common.option import OptionSide
+from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.mc.heston import HestonDynamicsParameters
+from erdqlib.src.ft.data_loader import load_option_data
 from erdqlib.tool.logger_util import create_logger
+from erdqlib.tool.path import get_path_from_package
 
 LOGGER = create_logger(__name__)
 
@@ -134,27 +136,19 @@ def B96_eur_option_value(
 
 
 def B96_error_function(
-    p0, options, S0, kappa_v, theta_v, sigma_v, rho, v0, side: OptionSide, print_iter=None, min_MSE=None, opt1=None
+    task_params, options, S0, kappa_v, theta_v, sigma_v, rho, v0, side: OptionSide, print_iter=None, min_MSE=None, opt1=None
 ):
     """Error function for Bates (1996) model calibration."""
-    lamb, mu, delta = p0
+    lamb, mu, delta = task_params
     if lamb < 0.0 or mu < -0.6 or mu > 0.0 or delta < 0.0:
         return 5000.0
     se = []
     for _, option in options.iterrows():
         model_value = B96_eur_option_value(
             S0,
-            option["Strike"],
-            option["T"],
-            option["r"],
-            kappa_v,
-            theta_v,
-            sigma_v,
-            rho,
-            v0,
-            lamb,
-            mu,
-            delta,
+            option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
+            kappa_v, theta_v, sigma_v, rho, v0,
+            lamb, mu, delta,
             side,
         )
         se.append((model_value - option[side.name]) ** 2)
@@ -163,10 +157,10 @@ def B96_error_function(
         min_MSE[0] = min(min_MSE[0], MSE)
     if print_iter is not None:
         if print_iter[0] % 25 == 0:
-            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3f} | {min_MSE[0]:7.3f}")
+            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in task_params)}] | {MSE:7.3f} | {min_MSE[0]:7.3f}")
         print_iter[0] += 1
     if opt1 is not None:
-        penalty = np.sqrt(np.sum((p0 - opt1) ** 2)) * 1
+        penalty = np.sqrt(np.sum((task_params - opt1) ** 2)) * 1
         return MSE + penalty
     return MSE
 
@@ -204,9 +198,9 @@ def B96_jump_calculate_model_values(options, S0, kappa_v, theta_v, sigma_v, rho,
     for _, option in options.iterrows():
         model_value = B96_eur_option_value(
             S0,
-            option["Strike"],
-            option["T"],
-            option["r"],
+            option[OptionDataColumn.STRIKE],
+            option[OptionDataColumn.TENOR],
+            option[OptionDataColumn.RATE],
             kappa_v,
             theta_v,
             sigma_v,
@@ -223,11 +217,11 @@ def B96_jump_calculate_model_values(options, S0, kappa_v, theta_v, sigma_v, rho,
 def plot_calibration_results(options, model_values, side: OptionSide):
     """Plot market and model prices for each maturity and OptionSide."""
     options = options.copy()
-    options["Model"] = model_values
+    options[OptionDataColumn.MODEL] = model_values
     plt.figure(figsize=(8, 6))
     plt.subplot(211)
     plt.grid()
-    plt.title("Maturity %s %s" % (str(options["Maturity"].iloc[0])[:10], side.name))
+    plt.title("Maturity %s %s" % (str(options[OptionDataColumn.MATURITY].iloc[0])[:10], side.name))
     plt.ylabel("option values")
     plt.plot(options.Strike, options[side.name], "b", label="market")
     plt.plot(options.Strike, options.Model, "ro", label="model")
@@ -261,23 +255,16 @@ def B96_full_error_function(
     """Error function for full Bates (1996) model calibration."""
     kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta = p0
     # Parameter bounds
-    if HestonDynamicsParameters.do_parameters_offbound(*p0):
+    if HestonDynamicsParameters.do_parameters_offbound(kappa_v, theta_v, sigma_v, rho, v0):
         return 5000.0
+
     se = []
     for _, option in options.iterrows():
         model_value = B96_eur_option_value(
             S0,
-            option["Strike"],
-            option["T"],
-            option["r"],
-            kappa_v,
-            theta_v,
-            sigma_v,
-            rho,
-            v0,
-            lamb,
-            mu,
-            delta,
+            option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
+            kappa_v, theta_v, sigma_v, rho, v0,
+            lamb, mu, delta,
             side,
         )
         se.append((model_value - option[side.name]) ** 2)
@@ -288,73 +275,67 @@ def B96_full_error_function(
     print_iter[0] += 1
     return MSE
 
-def B96_calibration_full(options, S0, p0, side: OptionSide):
+
+def B96_calibration_full(
+        df_options: pd.DataFrame, S0: float, initial_params: np.ndarray, side: OptionSide
+) -> np.ndarray:
     """Calibrates all Bates (1996) model parameters to market prices."""
     print_iter = [0]
     min_MSE = [5000.0]
 
-    LOGGER.info("fmin optimization")
-    opt = fmin(
-        lambda p: B96_full_error_function(p, options, S0, print_iter, min_MSE, side),
-        p0,
-        xtol=1e-7,
-        ftol=1e-7,
-        maxiter=500,
-        maxfun=700,
+    LOGGER.info("fmin optimization begins")
+    opt: np.ndarray = fmin(
+        lambda p: B96_full_error_function(p, df_options, S0, print_iter, min_MSE, side),
+        initial_params,
+        xtol=1e-7, ftol=1e-7, maxiter=500, maxfun=700,
     )
-    LOGGER.info(f"Optimisation result: {print_iter[0]} | [{', '.join(f'{x:.2f}' for x in opt)}] | {min_MSE[0]:7.3f}")
+    LOGGER.info(f"Full optimisation result: {print_iter[0]} | [{', '.join(f'{x:.2f}' for x in opt)}] | {min_MSE[0]:7.3f}")
     return opt
 
-def B96_calculate_model_values(options, S0, p0, side: OptionSide):
+
+def B96_calculate_model_values(df_options: pd.DataFrame, S0: float, p0: np.ndarray, side: OptionSide) -> np.ndarray:
     """Calculates all model values for full Bates model given parameter vector p0."""
     kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta = p0
     values = []
-    for _, option in options.iterrows():
+    for _, option in df_options.iterrows():
         model_value = B96_eur_option_value(
             S0,
-            option["Strike"],
-            option["T"],
-            option["r"],
-            kappa_v,
-            theta_v,
-            sigma_v,
-            rho,
-            v0,
-            lamb,
-            mu,
-            delta,
+            option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
+            kappa_v, theta_v, sigma_v, rho, v0,
+            lamb, mu, delta,
             side,
         )
         values.append(model_value)
     return np.array(values)
 
-def plot_full_calibration_results(options, model_values, side: OptionSide):
+
+def plot_full_calibration_results(df_options: pd.DataFrame, model_values: np.ndarray, side: OptionSide):
     """Plot market and model prices for each maturity and OptionSide (full calibration)."""
-    options = options.copy()
-    options["Model"] = model_values
+    df_options = df_options.copy()
+    df_options[OptionDataColumn.MODEL] = model_values
     plt.figure(figsize=(8, 6))
     plt.subplot(211)
     plt.grid()
-    plt.title("Maturity %s %s (Full Bates)" % (str(options["Maturity"].iloc[0])[:10], side.name))
+    plt.title("Maturity %s %s (Full Bates)" % (str(df_options[OptionDataColumn.MATURITY].iloc[0])[:10], side.name))
     plt.ylabel("option values")
-    plt.plot(options.Strike, options[side.name], "b", label="market")
-    plt.plot(options.Strike, options.Model, "ro", label="model")
+    plt.plot(df_options[OptionDataColumn.STRIKE], df_options[side.name], "b", label="market")
+    plt.plot(df_options[OptionDataColumn.STRIKE], df_options[OptionDataColumn.MODEL], "ro", label="model")
     plt.legend(loc=0)
     plt.axis([
-        min(options.Strike) - 10,
-        max(options.Strike) + 10,
-        min(options[side.name]) - 10,
-        max(options[side.name]) + 10,
+        min(df_options[OptionDataColumn.STRIKE]) - 10,
+        max(df_options[OptionDataColumn.STRIKE]) + 10,
+        min(df_options[side.name]) - 10,
+        max(df_options[side.name]) + 10,
     ])
     plt.subplot(212)
     plt.grid()
     wi = 5.0
-    diffs = options.Model.values - options[side.name].values
-    plt.bar(options.Strike.values - wi / 2, diffs, width=wi)
+    diffs = df_options[OptionDataColumn.MODEL].values - df_options[side.name].values
+    plt.bar(df_options[OptionDataColumn.STRIKE].values - wi / 2, diffs, width=wi)
     plt.ylabel("difference")
     plt.axis([
-        min(options.Strike) - 10,
-        max(options.Strike) + 10,
+        min(df_options[OptionDataColumn.STRIKE]) - 10,
+        max(df_options[OptionDataColumn.STRIKE]) + 10,
         min(diffs) * 1.1,
         max(diffs) * 1.1,
     ])
@@ -394,16 +375,16 @@ def get_calibrated_heston_params(
         calib_result = HestonDynamicsParameters(
             S0=S0,
             r=r,
-            v0=v0,
-            kappa=kappa_v,
-            sigma=sigma_v,
-            theta=theta_v,
-            rho=rho
+            v0_heston=v0,
+            kappa_heston=kappa_v,
+            sigma_heston=sigma_v,
+            theta_heston=theta_v,
+            rho_heston=rho
         ).get_bounded_parameters()
         LOGGER.info(f"Heston model parameters loaded: {kappa_v:.3g}, {theta_v:.3g}, {sigma_v:.3g}, {rho:.3g}, {v0:.3g}")
     elif data_path:
         #Calibrate Heston model parameters to market data first
-        df_options = load_option_data(path_str=data_path, S0=S0, r=r)
+        df_options = load_option_data(path_str=data_path, S0=S0, r_provider=lambda *_: r)
         calib_result: HestonDynamicsParameters = H93_calibration_full(
             df_options=df_options, S0=S0, r=r, side=side,
             search_grid=HestonDynamicsParameters.get_default_search_grid()
@@ -415,9 +396,9 @@ def get_calibrated_heston_params(
     return calib_result
 
 def ex_calibration(
-        data_path=None,
-        params_path=None,
-        side: OptionSide = OptionSide.CALL,
+        data_path: str,
+        side: OptionSide,
+        params_path = None,
         skip_plot: bool = False
 ):
     """Example: calibrate Bates (1996) model to market data and plot results for given OptionSide.
@@ -426,34 +407,50 @@ def ex_calibration(
 
     S0 = 3225.93  # EURO STOXX 50 level 30.09.2014
     r = 0.02
-    options: pd.DataFrame = load_option_data(path_str=data_path, S0=S0, r=r)  # Load option data from HDF5 file
+    df_options: pd.DataFrame = load_option_data(
+        path_str=data_path, S0=S0,
+        r_provider=lambda *_: r # constant short rate
+    )  # Load option data from HDF5 file
     heston_result: HestonDynamicsParameters = get_calibrated_heston_params(
-        data_path=data_path, S0=S0, r=r, side=side,
+        data_path=data_path, S0=S0,
+        r=r,
+        side=side,
         params_path=params_path
     )
 
     # Select closest maturity
-    mats = sorted(set(options["Maturity"]))
-    options = options[options["Maturity"] == mats[0]]
+    mats = sorted(set(df_options[OptionDataColumn.MATURITY]))
+    df_options = df_options[df_options[OptionDataColumn.MATURITY] == mats[0]]
 
     # Short (jump-only) calibration
     LOGGER.info("\n--- Short (jump-only) calibration ---")
-    mertonj_result = B96_calibration_short(options, S0, *heston_result.get_values(), side) # lamb, mu, delta
-    model_values_short = B96_jump_calculate_model_values(options, S0, *heston_result.get_values(), mertonj_result, side)
+    mertonj_result = B96_calibration_short(df_options, S0, *heston_result.get_values(), side) # lamb, mu, delta
+    model_values_short = B96_jump_calculate_model_values(df_options, S0, *heston_result.get_values(), mertonj_result, side)
     if not skip_plot:
-        plot_calibration_results(options, model_values_short, side)
+        plot_calibration_results(df_options, model_values_short, side)
 
     # Full Bates calibration
     LOGGER.info("\n--- Full Bates calibration ---")
-    params_full = list(x for x in heston_result.get_values())
+    params_full: List[float] = list(x for x in heston_result.get_values())
     params_full.extend(mertonj_result)
-    params_full = B96_calibration_full(options, S0, p0=params_full, side=side)
-    model_values_full = B96_calculate_model_values(options, S0, params_full, side)
+    params_bates: np.ndarray = B96_calibration_full(
+        df_options=df_options, S0=S0,
+        initial_params=np.array(params_full, dtype=np.float64), side=side
+    )
     if not skip_plot:
-        plot_full_calibration_results(options, model_values_full, side)
+        plot_full_calibration_results(
+            df_options=df_options,
+            model_values=B96_calculate_model_values(df_options, S0, params_bates, side=side),
+            side=side
+        )
 
 
 if __name__ == "__main__":
     ex_pricing()
-    ex_calibration(side=OptionSide.CALL, data_path="./option_dataset.h5", skip_plot=True) # params_path="./opt_sv_M2.npy"
+    ex_calibration(
+        # params_path="./opt_sv_M2.npy",
+        data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
+        side=OptionSide.CALL,
+        skip_plot=False,
+    )
     # ex_calibration(side=OptionSide.PUT)

@@ -11,9 +11,9 @@ LOGGER = create_logger(__name__)
 
 @dataclass
 class VasicekDynamicsParameters(DynamicsParameters):
-    k: float
-    theta: float
-    sigma: float
+    kappa_vasicek: float
+    theta_vasicek: float
+    sigma_vasicek: float
 
 
 @dataclass
@@ -39,8 +39,8 @@ class Vasicek(MonteCarlo):
                 x_arr2d[0] = v_params.S0
                 continue
 
-            x_arr2d[t] = x_arr2d[t - 1] * np.exp(-v_params.k * dt) + v_params.theta * (1 - np.exp(-v_params.k * dt)) + \
-                         v_params.sigma * np.sqrt((1 - np.exp(-2 * v_params.k * dt)) / (2 * v_params.k)) * z[t]
+            x_arr2d[t] = x_arr2d[t - 1] * np.exp(-v_params.kappa_vasicek * dt) + v_params.theta_vasicek * (1 - np.exp(-v_params.kappa_vasicek * dt)) + \
+                         v_params.sigma_vasicek * np.sqrt((1 - np.exp(-2 * v_params.kappa_vasicek * dt)) / (2 * v_params.kappa_vasicek)) * z[t]
 
         return x_arr2d
 
@@ -50,7 +50,7 @@ class Vasicek(MonteCarlo):
         LOGGER.info(str(model_params.__dict__))
         z_arr2d: np.ndarray = MonteCarlo.generate_random_numbers(model_params=model_params)
 
-        x_arr2d: np.array = Vasicek.sample_paths(model_params, z_arr2d)
+        x_arr2d: np.ndarray = Vasicek.sample_paths(model_params, z_arr2d)
         return x_arr2d
 
 
@@ -62,9 +62,9 @@ def example_vasicek():
         random_seed=0,
 
         S0=0.023,
-        k=0.20,
-        theta=0.01,
-        sigma=0.0012,
+        kappa_vasicek=0.20,
+        theta_vasicek=0.01,
+        sigma_vasicek=0.0012,
         r=None,  # Risk-free rate
     )
 

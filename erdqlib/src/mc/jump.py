@@ -4,27 +4,41 @@ from typing import Tuple
 import numpy as np
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
-from erdqlib.src.mc.dynamics import ModelParameters
+from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
 
+@dataclass
+class JumpOnlyDynamicsParameters(DynamicsParameters):
+    lambd_merton: float
+    mu_merton: float
+    delta_merton: float
+
+    @staticmethod
+    def do_parameters_offbound(lambd, mu, delta) -> bool:
+        return lambd < 0.0 or mu < -0.6 or mu > 0.0 or delta < 0.0
+
+    def get_values(self) -> Tuple[float, float, float]:
+        return self.lambd_merton, self.mu_merton, self.delta_merton
+
 
 @dataclass
-class JumpParameters(ModelParameters):
-    lambd: float
-    mu: float
-    delta: float
-    sigma: float
+class JumpDynamicsParameters(JumpOnlyDynamicsParameters):
+    sigma_merton: float
+
+
+@dataclass
+class JumpParameters(ModelParameters, JumpDynamicsParameters):
     
     def get_interval_intensity(self) -> float:
-        return self.lambd * self.get_dt()
+        return self.lambd_merton * self.get_dt()
 
     def get_r_offset(self) -> float:
         # Get rj, the risk-free rate offset for arbitrage-free model requirement
-        rj = self.lambd * np.exp(self.mu + 0.5 * self.delta ** 2 - 1.0)
+        rj = self.lambd_merton * np.exp(self.mu_merton + 0.5 * self.delta_merton ** 2 - 1.0)
         LOGGER.info(f"  \u007brj={rj:.3g}\u007d")
         return rj
 
@@ -46,8 +60,8 @@ class MertonJump(MonteCarlo):
             if t == 0:
                 S[0] = j_params.S0
                 continue
-            mult = np.exp((j_params.r - rj - 0.5 * j_params.sigma ** 2) * dt + j_params.sigma * sdt * z1[t])
-            mult += (np.exp(j_params.mu + j_params.delta * z2[t]) - 1) * j[t]
+            mult = np.exp((j_params.r - rj - 0.5 * j_params.sigma_merton ** 2) * dt + j_params.sigma_merton * sdt * z1[t])
+            mult += (np.exp(j_params.mu_merton + j_params.delta_merton * z2[t]) - 1) * j[t]
             S[t] = S[t - 1] * mult
             S[t] = np.maximum(S[t], 1e-6)
         return S
@@ -73,10 +87,10 @@ class MertonJump(MonteCarlo):
 
 if __name__ == "__main__":
     j_params: JumpParameters = JumpParameters(
-        lambd = 0.75,  # Lambda of the model
-        mu = -0.6,  # Mu
-        delta = 0.25,  # Delta
-        sigma = 0.2,
+        lambd_merton= 0.75,  # Lambda of the model
+        mu_merton= -0.6,  # Mu
+        delta_merton= 0.25,  # Delta
+        sigma_merton= 0.2,
 
         S0 = 100,  # Current underlying asset price
         r = 0.05,  # Risk-free rate

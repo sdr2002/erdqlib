@@ -13,10 +13,10 @@ from erdqlib.tool.path import get_path_from_package
 @pytest.fixture
 def jump_params():
     return JumpParameters(
-        lambd=0.75,  # Lambda of the model
-        mu=-0.6,  # Mu
-        delta=0.25,  # Delta
-        sigma=0.2,
+        lambd_merton=0.75,  # Lambda of the model
+        mu_merton=-0.6,  # Mu
+        delta_merton=0.25,  # Delta
+        sigma_merton=0.2,
 
         S0=100,  # Current underlying asset price
         r=0.05,  # Risk-free rate

@@ -16,11 +16,11 @@ LOGGER = create_logger(__name__)
 
 @dataclass
 class HestonDynamicsParameters(DynamicsParameters):
-    v0: float
-    kappa: float
-    sigma: float
-    theta: float
-    rho: float
+    v0_heston: float
+    kappa_heston: float
+    sigma_heston: float
+    theta_heston: float
+    rho_heston: float
 
     @staticmethod
     def get_default_search_grid() -> Dict[str, Tuple[float, float, float]]:
@@ -46,15 +46,15 @@ class HestonDynamicsParameters(DynamicsParameters):
         eps: float = 1e-6
         return HestonDynamicsParameters(
             S0=self.S0, r=self.r,
-            kappa=np.clip(self.kappa, eps, 0.5 * self.sigma ** 2 / self.theta),  # kappa must be positive
-            sigma=np.clip(self.sigma, eps, 1. - eps),  # sigma must be positive
-            theta=np.clip(self.theta, 0.005 + eps, 1. - eps),  # theta must be positive
-            rho=np.clip(self.rho, -1. + eps, 1 - eps),  # rho must be in (-1, 1)
-            v0=np.clip(self.v0, eps, 1. - eps),  # v0 must be positive
+            kappa_heston=float(np.clip(self.kappa_heston, eps, 0.5 * self.sigma_heston ** 2 / self.theta_heston)),  # kappa must be positive
+            sigma_heston=float(np.clip(self.sigma_heston, eps, 1. - eps)),  # sigma must be positive
+            theta_heston=float(np.clip(self.theta_heston, 0.005 + eps, 1. - eps)),  # theta must be positive
+            rho_heston=float(np.clip(self.rho_heston, -1. + eps, 1 - eps)),  # rho must be in (-1, 1)
+            v0_heston=float(np.clip(self.v0_heston, eps, 1. - eps)),  # v0 must be positive
         )
 
     def get_values(self) -> Tuple[float, float, float, float, float]:
-        return self.kappa, self.theta, self.sigma, self.rho, self.v0
+        return self.kappa_heston, self.theta_heston, self.sigma_heston, self.rho_heston, self.v0_heston
 
 
 @dataclass
@@ -78,11 +78,11 @@ class Heston(MonteCarlo):
         row: int = 1
         for t in range(0, h_params.M + 1):
             if t == 0:
-                v_arr2d[0] = h_params.v0
+                v_arr2d[0] = h_params.v0_heston
                 continue
             ran = np.dot(cho_matrix, rand[:, t])[row]
-            next_v = v_arr2d[t - 1] + h_params.kappa * (h_params.theta - v_arr2d[t - 1]) * dt + np.sqrt(
-                v_arr2d[t - 1]) * h_params.sigma * ran * sdt
+            next_v = v_arr2d[t - 1] + h_params.kappa_heston * (h_params.theta_heston - v_arr2d[t - 1]) * dt + np.sqrt(
+                v_arr2d[t - 1]) * h_params.sigma_heston * ran * sdt
             v_arr2d[t] = np.maximum(0, next_v)  # manual non-negative bound
         return v_arr2d
 
@@ -118,7 +118,7 @@ class Heston(MonteCarlo):
         rand_tensor, cho_matrix = Heston.generate_random_numbers(model_params)
 
         cho_matrix: np.ndarray = np.linalg.cholesky(
-            np.array([[1.0, model_params.rho], [model_params.rho, 1.0]])
+            np.array([[1.0, model_params.rho_heston], [model_params.rho_heston, 1.0]])
         )
         LOGGER.info(f"Cholesky matrix:\n{cho_matrix}")
 
@@ -139,7 +139,7 @@ class Heston(MonteCarlo):
         random_normal_arr = np.random.standard_normal((2, model_params.M + 1, model_params.I))
         LOGGER.info(f"rand shape: {random_normal_arr.shape}")
 
-        covariance_matrix = np.array([[1.0, model_params.rho], [model_params.rho, 1.0]])
+        covariance_matrix = np.array([[1.0, model_params.rho_heston], [model_params.rho_heston, 1.0]])
         covariance_cholesky_lower_arr = np.linalg.cholesky(covariance_matrix)
         LOGGER.info(f"Cov:\n{covariance_matrix}")
         LOGGER.info(f"L:\n{covariance_cholesky_lower_arr}")
@@ -200,7 +200,7 @@ class Heston(MonteCarlo):
         ax3 = axs[1, 1]
         var_last = var_paths[-1, :]
         ax3.hist(var_last, density=True, bins=500)
-        ax3.axvline(x=model_params.sigma ** 2, color='black', linestyle='--', label='sigma^2')
+        ax3.axvline(x=model_params.sigma_heston ** 2, color='black', linestyle='--', label='sigma^2')
         x_var = np.linspace(var_last.min(), var_last.max(), 500)
         ax3.plot(
             x_var, ss.lognorm.pdf(x_var, *ss.lognorm.fit(var_last, floc=0)),
@@ -214,11 +214,11 @@ class Heston(MonteCarlo):
 
 def example_heston():
     h_params: HestonParameters = HestonParameters(
-        v0=0.04,
-        kappa=2,
-        sigma=0.3,
-        theta=0.04,
-        rho=-0.9,
+        v0_heston=0.04,
+        kappa_heston=2,
+        sigma_heston=0.3,
+        theta_heston=0.04,
+        rho_heston=-0.9,
 
         S0=100,  # Current underlying asset price
         r=0.05,  # Risk-free rate

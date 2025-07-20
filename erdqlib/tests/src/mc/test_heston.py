@@ -13,11 +13,11 @@ from erdqlib.tool.path import get_path_from_package
 @pytest.fixture
 def heston_params():
     return HestonParameters(
-        v0=0.04,
-        kappa=2,
-        sigma=0.3,
-        theta=0.04,
-        rho=-0.9,
+        v0_heston=0.04,
+        kappa_heston=2,
+        sigma_heston=0.3,
+        theta_heston=0.04,
+        rho_heston=-0.9,
         S0=100,
         r=0.05,
         T=1,

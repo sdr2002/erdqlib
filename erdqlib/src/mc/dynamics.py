@@ -34,7 +34,7 @@ class SamplingParameters:
 
 @dataclass
 class DynamicsParameters:
-    S0: float  # Current underlying asset price
+    S0: Optional[float]  # Current underlying asset price
     r: Optional[float]  # Risk-free rate
 
     def get_dynamics_parameters(self) -> Self:

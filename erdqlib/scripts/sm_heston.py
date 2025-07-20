@@ -1,13 +1,17 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Optional
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
+from erdqlib.src.common.option import OptionDataColumn
 from erdqlib.src.common.option import OptionSide
+from erdqlib.src.ft.data_loader import load_option_data
 from erdqlib.src.mc.heston import HestonDynamicsParameters
 from erdqlib.tool.logger_util import create_logger
+from erdqlib.tool.path import get_path_from_package
 
 LOGGER = create_logger(__name__)
 
@@ -142,17 +146,16 @@ def H93_error_function(
         mean squared error
     """
     kappa_v, theta_v, sigma_v, rho, v0 = p0
-    if kappa_v < 0.0 or theta_v < 0.005 or sigma_v < 0.0 or rho < -1.0 or rho > 1.0:
-        return 500.0
-    if 2 * kappa_v * theta_v < sigma_v ** 2:
+
+    if HestonDynamicsParameters.do_parameters_offbound(kappa_v, theta_v, sigma_v, rho, v0):
         return 500.0
     se = []
     for row, option in df_options.iterrows():
         model_value = H93_eur_option_value(
             s0,
-            option["Strike"],
-            option["T"],
-            option["r"],
+            option[OptionDataColumn.STRIKE],
+            option[OptionDataColumn.TENOR],
+            option[OptionDataColumn.RATE],
             kappa_v,
             theta_v,
             sigma_v,
@@ -172,7 +175,7 @@ def H93_error_function(
 def H93_calibration_full(
         df_options: pd.DataFrame,
         S0: float,
-        r: float,
+        r: Optional[float],
         side: OptionSide,
         search_grid: Dict[str, Tuple[float, float, float]]
 ) -> HestonDynamicsParameters:
@@ -200,25 +203,25 @@ def H93_calibration_full(
     # Second run with local, convex minimization
     # (we dig deeper where promising results)
     LOGGER.info("Fmin begins")
-    p_opt = fmin(
+    p_opt: np.array = fmin(
         lambda params, data=df_options, s0=S0, option_side=side: H93_error_function(
             params, data, i, min_MSE, s0, option_side
         ),
         p0, xtol=0.000001, ftol=0.000001, maxiter=1000, maxfun=1000,
         full_output=False, retall=False, disp=True
-    )  # type: np.ndarray
+    )  # type: ignore
     kappa_v, theta_v, sigma_v, rho, v0 = p_opt.tolist()
 
     bounded_result: HestonDynamicsParameters = HestonDynamicsParameters(
         S0=S0,
         r=r,
-        v0=v0,
-        kappa=kappa_v,
-        sigma=sigma_v,
-        theta=theta_v,
-        rho=rho
+        v0_heston=v0,
+        kappa_heston=kappa_v,
+        sigma_heston=sigma_v,
+        theta_heston=theta_v,
+        rho_heston=rho
     ).get_bounded_parameters()
-    LOGGER.info(f"Calibration results:\n{bounded_result}")
+    LOGGER.debug(f"Calibration results:\n{bounded_result}")
     return bounded_result
 
 
@@ -242,29 +245,33 @@ def ex_pricing():
     )
 
 
-def load_option_data(path_str: str, S0: float, r: float) -> pd.DataFrame:
-    """Load option data from HDF5 file."""
-    h5 = pd.HDFStore(
-        path_str, "r"
-    )  # Place this file in the same directory before running the code
-    data = h5["data"]  # European call & put option data (3 maturities)
-    h5.close()
+def generate_plot(
+    opt_params: HestonDynamicsParameters, df_options: pd.DataFrame, S0: float, side: OptionSide
+):
+    """Plot market and model prices for each maturity and OptionSide."""
+    df_options = df_options.copy()
+    df_options[OptionDataColumn.MODEL] = 0.0
+    for row, option in df_options.iterrows():
+        df_options.loc[row, "Model"] = H93_eur_option_value(
+            side=side,
+            S0=S0, K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
+            kappa_v=opt_params.kappa_heston, theta_v=opt_params.theta_heston, sigma_v=opt_params.sigma_heston, rho=opt_params.rho_heston, v0=opt_params.v0_heston
+        )
+    mats = sorted(set(df_options[OptionDataColumn.MATURITY]))
+    df_options = df_options.set_index("Strike")
+    for mat in mats:
+        df_options[df_options[OptionDataColumn.MATURITY] == mat][[side.name, "Model"]].plot(
+            style=["b-", "ro"], title=f"Maturity {str(mat)[:10]} {side.name}"
+        )
+        plt.ylabel("Option Value")
+    plt.show()
 
-    # Option Selection
-    tol = 0.02  # Tolerance level to select ATM options (percent around ITM/OTM options)
-    options = data[(np.abs(data["Strike"] - S0) / S0) < tol]
-    options = options.assign(**{dt_key: pd.to_datetime(options[dt_key]) for dt_key in ["Date", "Maturity"]})
-    options = options.rename(columns={c: c.upper() for c in ["Call", "Put"]})
-    # Adding Time-to-Maturity and constant short-rates
-    for row, option in options.iterrows():
-        T = (option["Maturity"] - option["Date"]).days / 365.0
-        options.loc[row, "T"] = T
-        options.loc[row, "r"] = r
 
-    return options
-
-
-def ex_calibration(path_str: str = r"./option_dataset.h5"):
+def ex_calibration(
+        data_path: str,
+        side: OptionSide,
+        skip_plot: bool = False
+):
     # Market Data from www.eurexchange.com
     # as of September 30, 2014
 
@@ -272,17 +279,24 @@ def ex_calibration(path_str: str = r"./option_dataset.h5"):
     r = 0.02
 
     df_options: pd.DataFrame = load_option_data(
-        path_str=path_str,
+        path_str=data_path,
         S0=S0,  # EURO STOXX 50 level September 30, 2014
-        r=r
+        r_provider=lambda *_: r # constant short rate
     )
-    side: OptionSide = OptionSide.CALL
-    H93_calibration_full(
-        df_options=df_options, S0=S0, r=r, side=side,
+
+    opt_params: HestonDynamicsParameters = H93_calibration_full(
+        df_options=df_options, S0=S0, r=None, side=side,
         search_grid=HestonDynamicsParameters.get_default_search_grid()
     )
+
+    if not skip_plot:
+        generate_plot(opt_params, df_options, S0, side)
 
 
 if __name__ == "__main__":
     ex_pricing()
-    ex_calibration()
+    ex_calibration(
+        data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
+        side=OptionSide.CALL,
+        skip_plot=False
+    )

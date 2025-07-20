@@ -24,7 +24,7 @@ def gbm_params():
 
 
 def test_gbm_paths_values(gbm_params):
-    paths: np.array = Gbm.calculate_paths(gbm_params)
+    paths: np.ndarray = Gbm.calculate_paths(gbm_params)
     compare_arrays_and_update(
         paths,
         Path(get_path_from_package("erdqlib@tests/src/mc/data/test_gbm_paths_values.csv"))
@@ -32,7 +32,7 @@ def test_gbm_paths_values(gbm_params):
 
 
 def test_gbm_eur_option_price(gbm_params):
-    s_paths: np.array = Gbm.calculate_paths(gbm_params)
+    s_paths: np.ndarray = Gbm.calculate_paths(gbm_params)
     call_price: float = price_montecarlo(
         underlying_path=s_paths,
         d=gbm_params,

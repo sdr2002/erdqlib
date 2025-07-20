@@ -61,11 +61,11 @@ class Cir(MonteCarlo):
     def calculate_paths(model_params: CirParameters, *_, **__) -> np.ndarray:
         """Merton jump process paths sampler"""
         LOGGER.info(str(model_params.__dict__))
-        x_arr2d: np.array = Cir.sample_paths(model_params)
+        x_arr2d: np.ndarray = Cir.sample_paths(model_params)
         return x_arr2d
 
 
-def example_vasicek():
+def example_cir():
     v_params: CirParameters = CirParameters(
         T = 1.0,  # Maturity
         M = 500,  # Number of paths for MC
@@ -84,4 +84,4 @@ def example_vasicek():
 
 
 if __name__ == "__main__":
-    example_vasicek()
+    example_cir()

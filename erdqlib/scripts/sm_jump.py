@@ -4,14 +4,16 @@ import pandas as pd
 from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
+from erdqlib.src.common.option import OptionDataColumn
 from erdqlib.src.common.option import OptionSide
 from erdqlib.tool.logger_util import create_logger
+from erdqlib.tool.path import get_path_from_package
 
 LOGGER = create_logger(__name__)
 
 
-def M76_char_func(u, T, r, sigma, lamb, mu, delta):
-    r"""
+def M76_char_func(u, T, r, sigma, lamb, mu, delta) -> np.float64:
+    """
     Characteristic function for the Merton ’76 jump-diffusion model.
 
     φ₀^{M76}(u, T) = exp( [i·u·ω
@@ -23,26 +25,32 @@ def M76_char_func(u, T, r, sigma, lamb, mu, delta):
       ω = r − ½·σ² − λ·(exp(μ + ½·δ²) − 1)
     """
     omega = r - 0.5 * sigma**2 - lamb * (np.exp(mu + 0.5 * delta**2) - 1)
-    return np.exp(
+    char_func_value = np.exp(
         (
             1j * u * omega
             - 0.5 * u**2 * sigma**2
             + lamb * (np.exp(1j * u * mu - 0.5 * u**2 * delta**2) - 1)
-        )
-        * T
+        ) * T
     )
+    return char_func_value
 
 
 # Merton (1976) characteristic function
-def M76J_char_func(u, T, lamb, mu, delta):
+def M76J_char_func(u, T, lamb, mu, delta) -> np.float64:
     """
-    Adjusted Characteristic function for Merton '76 model: Only jump component
+    Adjusted Characteristic function for Merton '76 model: Only jump component, no diffusion
+
+    φ₀^{M76J}(u, T) = exp( [i·u·ω + λ·(exp(i·u·μ − ½·u²·δ²) − 1)] · T )
+    where
+        ω = -λ·(exp(μ + ½·δ²) − 1)
     """
 
     omega = -lamb * (np.exp(mu + 0.5 * delta**2) - 1)
     char_func_value = np.exp(
-        (1j * u * omega + lamb * (np.exp(1j * u * mu - u**2 * delta**2 * 0.5) - 1))
-        * T
+        (
+            1j * u * omega
+            + lamb * (np.exp(1j * u * mu - u**2 * delta**2 * 0.5) - 1)
+        ) * T
     )
     return char_func_value
 
@@ -91,7 +99,9 @@ def M76_error_function(p0, options, S0, side: OptionSide, print_iter=None, min_R
     se = []
     for _, option in options.iterrows():
         model_value = M76_eur_option_value(
-            S0, option["Strike"], option["T"], option["r"], sigma, lamb, mu, delta, side
+            S0,
+            option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
+            sigma, lamb, mu, delta, side
         )
         se.append((model_value - option[side.name]) ** 2)
     RMSE = np.sqrt(sum(se) / len(se))
@@ -100,7 +110,6 @@ def M76_error_function(p0, options, S0, side: OptionSide, print_iter=None, min_R
     if print_iter is not None:
         if print_iter[0] % 50 == 0:
             LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {RMSE:7.3f} | {min_RMSE[0]:7.3f}")
-            print("%4d |" % print_iter[0], np.array(p0), "| %7.3f | %7.3f" % (RMSE, min_RMSE[0]))
         print_iter[0] += 1
     return RMSE
 
@@ -128,15 +137,15 @@ def generate_plot(opt, options, S0, side: OptionSide):
     """Plot market and model prices for each maturity and OptionSide."""
     sigma, lamb, mu, delta = opt
     options = options.copy()
-    options["Model"] = 0.0
+    options[OptionDataColumn.MODEL] = 0.0
     for row, option in options.iterrows():
         options.loc[row, "Model"] = M76_eur_option_value(
-            S0, option["Strike"], option["T"], option["r"], sigma, lamb, mu, delta, side
+            S0, option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE], sigma, lamb, mu, delta, side
         )
-    mats = sorted(set(options["Maturity"]))
+    mats = sorted(set(options[OptionDataColumn.MATURITY]))
     options = options.set_index("Strike")
     for mat in mats:
-        options[options["Maturity"] == mat][[side.name, "Model"]].plot(
+        options[options[OptionDataColumn.MATURITY] == mat][[side.name, "Model"]].plot(
             style=["b-", "ro"], title=f"Maturity {str(mat)[:10]} {side.name}"
         )
         plt.ylabel("Option Value")
@@ -154,11 +163,15 @@ def ex_pricing():
     delta = 0.1
     for side in [OptionSide.CALL, OptionSide.PUT]:
         value = M76_eur_option_value(S0, K, T, r, sigma, lamb, mu, delta, side)
-        print(f"Value of the {side.name} option under Merton (1976) is:  ${value}")
+        LOGGER.info(f"Value of the {side.name} option under Merton (1976) is:  ${value}")
 
-def ex_calibration(path_str="option_data_M2.h5", side: OptionSide = OptionSide.CALL):
+def ex_calibration(
+        data_path: str,
+        side: OptionSide,
+        skip_plot: bool = False
+):
     """Example: calibrate Merton (1976) model to market data and plot results for given OptionSide."""
-    h5 = pd.HDFStore(path_str, "r")
+    h5 = pd.HDFStore(data_path, "r")
     data = h5["data"]
     h5.close()
     S0 = 3225.93  # EURO STOXX 50 level September 30, 2014
@@ -167,13 +180,21 @@ def ex_calibration(path_str="option_data_M2.h5", side: OptionSide = OptionSide.C
     options = options.assign(**{dt_key: pd.to_datetime(options[dt_key]) for dt_key in ["Date", "Maturity"]})
     options = options.rename(columns={c: c.upper() for c in ["Call", "Put"]})
     for row, option in options.iterrows():
-        T = (option["Maturity"] - option["Date"]).days / 365.0
+        T = (option[OptionDataColumn.MATURITY] - option[OptionDataColumn.DATE]).days / 365.0
         options.loc[row, "T"] = T
         options.loc[row, "r"] = 0.005  # ECB base rate
     opt = M76_calibration_full(options, S0, side)
-    generate_plot(opt, options, S0, side)
+    LOGGER.info(f"Calibrated parameters: sigma={opt[0]:.4f}, lamb={opt[1]:.4f}, mu={opt[2]:.4f}, delta={opt[3]:.4f}")
+    if not skip_plot:
+        generate_plot(opt, options, S0, side)
 
 if __name__ == "__main__":
     ex_pricing()
-    ex_calibration(side=OptionSide.CALL)
-    ex_calibration(side=OptionSide.PUT)
+    ex_calibration(
+        data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
+        side=OptionSide.CALL
+    )
+    # ex_calibration(
+    #     data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
+    #     side=OptionSide.PUT
+    # )

@@ -32,9 +32,9 @@ def q8(skip_plot: bool = True):
     price an ATM European call and an ATM European put with jump intensity parameter equal to 0.75.
     """
     j_params: JumpParameters = JumpParameters(
-        lambd=0.75,
-        mu=-0.5,
-        delta=0.22,
+        lambd_merton=0.75,
+        mu_merton=-0.5,
+        delta_merton=0.22,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -70,9 +70,9 @@ def q9(skip_plot: bool = True):
     price an ATM European call and an ATM European put with jump intensity parameter equal to 0.25.
     """
     j_params: JumpParameters = JumpParameters(
-        lambd=0.25,
-        mu=-0.5,
-        delta=0.22,
+        lambd_merton=0.25,
+        mu_merton=-0.5,
+        delta_merton=0.22,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -122,9 +122,9 @@ def _delta_per_S0(
                 bump_ratio=ud_ratio,
                 model=MertonJump(),
                 model_params_creator= lambda s0: JumpParameters(
-                    lambd=lambd,
-                    mu=-0.5,
-                    delta=0.22,
+                    lambd_merton=lambd,
+                    mu_merton=-0.5,
+                    delta_merton=0.22,
 
                     M=500,  # Total time steps
                     I=10000,  # Number of simulations
@@ -205,9 +205,9 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
     params_to_overide = copy.deepcopy(COMMON_PARAMS)
     params_to_overide['S0'] = S0
     j_params: JumpParameters = JumpParameters(
-        lambd=0.75,
-        mu=-0.5,
-        delta=0.22,
+        lambd_merton=0.75,
+        mu_merton=-0.5,
+        delta_merton=0.22,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -268,10 +268,10 @@ def q5(skip_plot: bool = True):
     rho = -0.3
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
         M=500,  # Total time steps
         I=10000,  # Number of simulations
         random_seed=0,
@@ -308,10 +308,10 @@ def q6(skip_plot: bool = True):
     rho = -0.7
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -355,10 +355,10 @@ def _delta_per_S0_q7(
                 bump_ratio=ud_ratio,
                 model=Heston(),
                 model_params_creator=lambda s0: HestonParameters(
-                    v0=0.032,
-                    kappa=1.85,
-                    theta=0.045,
-                    rho=rho,
+                    v0_heston=0.032,
+                    kappa_heston=1.85,
+                    theta_heston=0.045,
+                    rho_heston=rho,
 
                     M=500,  # Total time steps
                     I=10000,  # Number of simulations
@@ -433,10 +433,10 @@ price the put). Comment on the differences you observe from original Questions
     rho = -0.3
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
         M=500,  # Total time steps
         I=10000,  # Number of simulations
         random_seed=0,
@@ -527,10 +527,10 @@ def _q14(S0: float, skip_plot: bool = True):
     rho = -0.7
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
