@@ -178,11 +178,10 @@ def plot_Jump(
             sigma=sigma, lambd=lamb, mu=mu, delta=delta,
             side=side
         )
-    mats = sorted(set(df_options_plt[OptionDataColumn.MATURITY]))
-    df_options_plt = df_options_plt.set_index(OptionDataColumn.STRIKE)
-    for mat in mats:
-        df_options_plt[df_options_plt[OptionDataColumn.MATURITY] == mat][[side.name, OptionDataColumn.MODEL]].plot(
-            style=["b-", "ro"], title=f"Maturity {str(mat)[:10]} {side.name}"
+
+    for maturity, df_options_per_maturity in df_options_plt.groupby(OptionDataColumn.DAYSTOMATURITY):
+        df_options_per_maturity[[side.name, OptionDataColumn.MODEL]].plot(
+            style=["b-", "ro"], title=f"Maturity {maturity} {side.name}"
         )
         plt.ylabel("Option Value")
     plt.show()
@@ -231,11 +230,11 @@ def ex_calibration(
 
 if __name__ == "__main__":
     ex_pricing()
-    # ex_calibration(
-    #     data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
-    #     side=OptionSide.CALL
-    # )
     ex_calibration(
         data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
-        side=OptionSide.PUT
+        side=OptionSide.CALL
     )
+    # ex_calibration(
+    #     data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
+    #     side=OptionSide.PUT
+    # )

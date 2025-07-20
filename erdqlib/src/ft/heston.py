@@ -179,7 +179,7 @@ class HestonFtiCalibrator(FtiCalibrator):
                 kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
                 side=side
             )
-            se.append((model_value - option[OptionSide.CALL.name]) ** 2)
+            se.append((model_value - option[side.name]) ** 2)
         MSE = sum(se) / len(se)
         min_MSE_record[0] = min(min_MSE_record[0], MSE)
         if print_iter[0] % 25 == 0:
@@ -254,12 +254,13 @@ def plot_Heston(
             S0=S0, K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
             kappa_v=opt_params.kappa_heston, theta_v=opt_params.theta_heston, sigma_v=opt_params.sigma_heston, rho=opt_params.rho_heston, v0=opt_params.v0_heston
         )
-    mats = sorted(set(df_options_plt[OptionDataColumn.MATURITY]))
-    df_options_plt = df_options_plt.set_index("Strike")
-    for mat in mats:
-        df_options_plt[df_options_plt[OptionDataColumn.MATURITY] == mat][[side.name, OptionDataColumn.MODEL]].plot(
-            style=["b-", "ro"], title=f"Maturity {str(mat)[:10]} {side.name}"
+
+    for maturity, df_options_per_maturity in df_options_plt.groupby(OptionDataColumn.DAYSTOMATURITY):
+        df_options_per_maturity[[OptionDataColumn.STRIKE] + [side.name, OptionDataColumn.MODEL]].plot(
+            x=OptionDataColumn.STRIKE, y=[side.name, OptionDataColumn.MODEL],
+            style=["b-", "ro"], title=f"Maturity {maturity}D on {side.name}"
         )
+        plt.axvline(x=S0, color='k', linestyle='--', label="S0")
         plt.ylabel("Option Value")
     plt.show()
 

@@ -53,10 +53,12 @@ class HestonDynamicsParameters(DynamicsParameters):
 
     @staticmethod
     def do_parameters_offbound(kappa_v, theta_v, sigma_v, rho, v0) -> bool:
+        eps: float = 1e-4
         return (
-                kappa_v < 0.0 or theta_v < 0.005 or sigma_v < 0.0
-                or rho < -1.0 or rho > 1.0 or v0 < 0.0
-                or 2 * kappa_v * theta_v < sigma_v ** 2
+                kappa_v < eps or kappa_v > 30. or
+                theta_v < 0.005 + eps or sigma_v < eps
+                or rho < -0.99 + eps or rho > 0.99 - eps or v0 < eps
+                or 2 * kappa_v * theta_v < sigma_v ** 2 + eps
         )
 
     def get_bounded_parameters(self) -> "HestonDynamicsParameters":

@@ -41,6 +41,8 @@ class OptionDataColumn(StrEnum):
 
     MODEL = "Model"
 
+    DAYSTOMATURITY = "DaysToMaturity"
+
     @staticmethod
     def get_callput_str() -> List[str]:
         return [str(OptionDataColumn.CALL.value), str(OptionDataColumn.PUT.value)]

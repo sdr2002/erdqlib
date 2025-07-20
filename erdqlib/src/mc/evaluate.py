@@ -145,6 +145,11 @@ def price_montecarlo(
 
             # 3) After backward induction, CF is already discounted to time t
             return cf.mean()
+        case OptionType.ASIAN:
+            if o.side == OptionSide.CALL:
+                payoff = np.maximum(0, np.mean(underlying_path,axis=0) - o.K)
+            else:
+                payoff = np.maximum(0, np.mean(underlying_path,axis=0) + o.K)
         case _:
             raise TypeError(f"Unknown option type: {o.type}")
 
