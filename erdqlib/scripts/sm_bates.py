@@ -8,10 +8,10 @@ from scipy.optimize import brute, fmin
 
 from erdqlib.scripts.caculator import FtMethod
 from erdqlib.src.ft.heston import HestonFtiCalibrator
-from erdqlib.scripts.sm_jump import M76J_char_func
+from erdqlib.src.ft.jump import JumpFtiCalibrator
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.mc.heston import HestonDynamicsParameters
-from erdqlib.src.ft.data_loader import load_option_data
+from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
 
@@ -20,8 +20,10 @@ LOGGER = create_logger(__name__)
 
 def B96_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):
     """Bates (1996) characteristic function."""
-    H93 = HestonFtiCalibrator.calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
-    M76J = M76J_char_func(u, T, lamb, mu, delta)
+    H93: complex = HestonFtiCalibrator.calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
+    M76J: complex = JumpFtiCalibrator.calculate_characteristic(
+        u=u, T=T, r=r, lamb=lamb, mu=mu, delta=delta, sigma=None, exclude_diffusion=True
+    )
     return H93 * M76J
 
 def B96_int_func(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):

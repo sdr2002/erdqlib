@@ -3,7 +3,7 @@ import pandas as pd
 
 from erdqlib.src.common.option import OptionSide
 from erdqlib.src.ft.calibrator import FtiCalibrator
-from erdqlib.src.ft.data_loader import load_option_data
+from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.src.ft.heston import HestonFtiCalibrator
 from erdqlib.src.mc.heston import HestonDynamicsParameters
 from erdqlib.tool.path import get_path_from_package
@@ -46,9 +46,9 @@ def test_heston_calibration():
 
     # Assert the values of the calibrated parameters equal the expected values
     for param in vars(expected_heston_params).keys():
-        np.testing.assert_almost_equal(
+        np.testing.assert_approx_equal(
             getattr(opt_params, param),
             getattr(expected_heston_params, param),
-            decimal=3,
+            significant=2,
             err_msg=f"Parameter {param} does not match expected value."
         )

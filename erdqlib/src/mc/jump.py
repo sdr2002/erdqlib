@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Type, Optional
 
 import numpy as np
 
@@ -11,11 +11,38 @@ from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
 
+JumpOnlySearchGridType: Type = Tuple[
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    Tuple[float, float, float]
+]
+
+JumpSearchGridType: Type = Tuple[
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    Tuple[float, float, float]
+]
+
+
 @dataclass
 class JumpOnlyDynamicsParameters(DynamicsParameters):
     lambd_merton: float
     mu_merton: float
     delta_merton: float
+
+    @staticmethod
+    def from_calibration_output(opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None) -> "JumpOnlyDynamicsParameters":
+        """Create JumpOnlyDynamicsParameters from an array of parameters."""
+        if len(opt_arr) != 3:
+            raise ValueError(f"Expected 3 parameters, got {len(opt_arr)}")
+        return JumpOnlyDynamicsParameters(
+            S0=S0,
+            r=r,
+            lambd_merton=opt_arr[0],
+            mu_merton=opt_arr[1],
+            delta_merton=opt_arr[2],
+        )
 
     @staticmethod
     def do_parameters_offbound(lambd, mu, delta) -> bool:
@@ -24,10 +51,50 @@ class JumpOnlyDynamicsParameters(DynamicsParameters):
     def get_values(self) -> Tuple[float, float, float]:
         return self.lambd_merton, self.mu_merton, self.delta_merton
 
+    @staticmethod
+    def get_default_search_grid() -> JumpOnlySearchGridType:
+        """Default search grid for jump parameters."""
+        return (
+            (0.10, 0.401, 0.1),  # lambda
+            (-0.5, 0.01, 0.1),  # mu
+            (0.10, 0.301, 0.1),  # delta
+        )
+
 
 @dataclass
 class JumpDynamicsParameters(JumpOnlyDynamicsParameters):
     sigma_merton: float
+
+    def get_values(self) -> Tuple[float, float, float, float]:
+        return self.lambd_merton, self.mu_merton, self.delta_merton, self.sigma_merton
+
+    @staticmethod
+    def from_calibration_output(opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None) -> "JumpDynamicsParameters":
+        """Create JumpDynamicsParameters from an array of parameters."""
+        if len(opt_arr) != 4:
+            raise ValueError(f"Expected 4 parameters, got {len(opt_arr)}")
+        return JumpDynamicsParameters(
+            S0=S0,
+            r=r,
+            lambd_merton=float(opt_arr[0]),
+            mu_merton=float(opt_arr[1]),
+            delta_merton=float(opt_arr[2]),
+            sigma_merton=float(opt_arr[3]),
+        )
+
+    @staticmethod
+    def get_default_search_grid() -> JumpSearchGridType:
+        """Default search grid for jump parameters."""
+        return (
+            (0.10, 0.401, 0.1),  # lambda
+            (-0.5, 0.01, 0.1),  # mu
+            (0.10, 0.301, 0.1),  # delta
+            (0.075, 0.201, 0.025),  # sigma
+        )
+
+    @staticmethod
+    def do_parameters_offbound(sigma: float, lambd: float, mu: float, delta: float) -> bool:
+        return sigma < 0.0 or delta < 0.0 or lambd < 0.0
 
 
 @dataclass

@@ -9,7 +9,7 @@ from scipy.optimize import brute, fmin
 from erdqlib.src.common.option import OptionDataColumn, OptionType
 from erdqlib.src.common.option import OptionSide
 from erdqlib.src.ft.calibrator import FtiCalibrator
-from erdqlib.src.ft.data_loader import load_option_data
+from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.src.mc.heston import HestonDynamicsParameters, HestonSearchGridType
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
@@ -23,9 +23,9 @@ class HestonFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_characteristic(
-            u: np.float64, T: float, r: float,
+            u: complex, T: float, r: float,
             kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float
-    ):
+    ) -> complex:
         r"""
         Heston (1993) characteristic function for Lewis (2001) Fourier pricing.
 
@@ -46,24 +46,24 @@ class HestonFtiCalibrator(FtiCalibrator):
                / (κ_v − ρ·σ_v·i·u − c₂)
         """
         # constants
-        c1 = kappa_v * theta_v
-        c2 = -np.sqrt(
+        c1: float = kappa_v * theta_v
+        c2: complex = -np.sqrt(
             (rho * sigma_v * u * 1j - kappa_v) ** 2
             - sigma_v ** 2 * (-u * 1j - u ** 2)
         )
-        c3 = (kappa_v - rho * sigma_v * u * 1j + c2) / (
+        c3: complex = (kappa_v - rho * sigma_v * u * 1j + c2) / (
                 kappa_v - rho * sigma_v * u * 1j - c2
         )
 
         # H1 and H2
-        H1 = (
+        H1: complex = (
                 1j * r * u * T
                 + (c1 / sigma_v ** 2) * (
                         (kappa_v - rho * sigma_v * u * 1j + c2) * T
                         - 2 * np.log((1 - c3 * np.exp(c2 * T)) / (1 - c3))
                 )
         )
-        H2 = (
+        H2: complex = (
                 (kappa_v - rho * sigma_v * u * 1j + c2)
                 / sigma_v ** 2
                 * ((1 - np.exp(c2 * T)) / (1 - c3 * np.exp(c2 * T)))
@@ -73,10 +73,10 @@ class HestonFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_integral_characteristic(
-            u: np.float64,
+            u: float,
             S0: float, K: float, T: float, r: float,
             kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float
-    ):
+    ) -> float:
         r"""
         Integrand for Lewis (2001) call pricing under Heston ’93 model:
 
@@ -174,16 +174,10 @@ class HestonFtiCalibrator(FtiCalibrator):
         se = []
         for row, option in df_options.iterrows():
             model_value = HestonFtiCalibrator.calculate_option_price(
-                s0,
-                option[OptionDataColumn.STRIKE],
-                option[OptionDataColumn.TENOR],
-                option[OptionDataColumn.RATE],
-                kappa_v,
-                theta_v,
-                sigma_v,
-                rho,
-                v0,
-                side
+                S0=s0,
+                K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
+                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+                side=side
             )
             se.append((model_value - option[OptionSide.CALL.name]) ** 2)
         MSE = sum(se) / len(se)
@@ -202,15 +196,13 @@ class HestonFtiCalibrator(FtiCalibrator):
             search_grid: HestonSearchGridType
     ) -> HestonDynamicsParameters:
         """Calibrates Heston (1993) stochastic volatility model to market quotes."""
-        # First run with brute force
-        # (scan sensible regions, for faster convergence)
-        i = [0]
+        print_iter = [0]
         min_MSE = [MIN_MSE]
 
         LOGGER.info("Brute-force begins")
         p0 = brute(
             lambda params, data=df_options, s0=S0, option_side=side: HestonFtiCalibrator.calculate_error(
-                params, data, i, min_MSE, s0, option_side
+                params, df_options=data, print_iter=print_iter, min_MSE_record=min_MSE, s0=s0, side=option_side
             ),
             search_grid,
             finish=None,
@@ -221,24 +213,13 @@ class HestonFtiCalibrator(FtiCalibrator):
         LOGGER.info("Fmin begins")
         p_opt: np.array = fmin(
             lambda params, data=df_options, s0=S0, option_side=side: HestonFtiCalibrator.calculate_error(
-                params, data, i, min_MSE, s0, option_side
+                params, df_options=data, print_iter=print_iter, min_MSE_record=min_MSE, s0=s0, side=option_side
             ),
-            p0, xtol=0.000001, ftol=0.000001, maxiter=1000, maxfun=1000,
+            p0, xtol=1e-6, ftol=1e-6, maxiter=750, maxfun=900,
             full_output=False, retall=False, disp=True
         )  # type: ignore
-        kappa_v, theta_v, sigma_v, rho, v0 = p_opt
 
-        bounded_result: HestonDynamicsParameters = HestonDynamicsParameters(
-            S0=S0,
-            r=r,
-            v0_heston=v0,
-            kappa_heston=kappa_v,
-            sigma_heston=sigma_v,
-            theta_heston=theta_v,
-            rho_heston=rho
-        ).get_bounded_parameters()
-        LOGGER.debug(f"Calibration results:\n{bounded_result}")
-        return bounded_result
+        return HestonDynamicsParameters.from_calibration_output(opt_arr=p_opt, S0=S0, r=r).get_bounded_parameters()
 
 
 def ex_pricing():
@@ -265,18 +246,18 @@ def plot_Heston(
     opt_params: HestonDynamicsParameters, df_options: pd.DataFrame, S0: float, side: OptionSide
 ):
     """Plot market and model prices for each maturity and OptionSide."""
-    df_options = df_options.copy()
-    df_options[OptionDataColumn.MODEL] = 0.0
-    for row, option in df_options.iterrows():
-        df_options.loc[row, "Model"] = HestonFtiCalibrator.calculate_option_price(
+    df_options_plt = df_options.copy()
+    df_options_plt[OptionDataColumn.MODEL] = 0.0
+    for row, option in df_options_plt.iterrows():
+        df_options_plt.loc[row, OptionDataColumn.MODEL] = HestonFtiCalibrator.calculate_option_price(
             side=side,
             S0=S0, K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
             kappa_v=opt_params.kappa_heston, theta_v=opt_params.theta_heston, sigma_v=opt_params.sigma_heston, rho=opt_params.rho_heston, v0=opt_params.v0_heston
         )
-    mats = sorted(set(df_options[OptionDataColumn.MATURITY]))
-    df_options = df_options.set_index("Strike")
+    mats = sorted(set(df_options_plt[OptionDataColumn.MATURITY]))
+    df_options_plt = df_options_plt.set_index("Strike")
     for mat in mats:
-        df_options[df_options[OptionDataColumn.MATURITY] == mat][[side.name, "Model"]].plot(
+        df_options_plt[df_options_plt[OptionDataColumn.MATURITY] == mat][[side.name, OptionDataColumn.MODEL]].plot(
             style=["b-", "ro"], title=f"Maturity {str(mat)[:10]} {side.name}"
         )
         plt.ylabel("Option Value")
@@ -300,7 +281,7 @@ def ex_calibration(
     )
 
     params_heston: HestonDynamicsParameters = HestonFtiCalibrator.calibrate(
-        df_options=df_options, S0=S0, r=None, side=side,
+        df_options=df_options, S0=S0, r=r, side=side,
         search_grid=HestonDynamicsParameters.get_default_search_grid()
     )
     LOGGER.info(f"Heston calib: {params_heston}")

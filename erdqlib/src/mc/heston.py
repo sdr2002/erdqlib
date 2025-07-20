@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Dict, Type
+from typing import Tuple, Dict, Type, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,7 +48,7 @@ class HestonDynamicsParameters(DynamicsParameters):
             (0.01, 0.041, 0.01),  # theta_heston
             (0.05, 0.251, 0.1),  # sigma_heston
             (-0.75, 0.01, 0.25),  # rho_heston
-            (0.01, 0.031, 0.01)   # v0_heston
+            (0.01, 0.031, 0.01)  # v0_heston
         )
 
     @staticmethod
@@ -64,7 +64,8 @@ class HestonDynamicsParameters(DynamicsParameters):
         eps: float = 1e-6
         return HestonDynamicsParameters(
             S0=self.S0, r=self.r,
-            kappa_heston=float(np.clip(self.kappa_heston, eps, 0.5 * self.sigma_heston ** 2 / self.theta_heston)),  # kappa must be positive
+            kappa_heston=float(np.clip(self.kappa_heston, eps, 0.5 * self.sigma_heston ** 2 / self.theta_heston)),
+            # kappa must be positive
             sigma_heston=float(np.clip(self.sigma_heston, eps, 1. - eps)),  # sigma must be positive
             theta_heston=float(np.clip(self.theta_heston, 0.005 + eps, 1. - eps)),  # theta must be positive
             rho_heston=float(np.clip(self.rho_heston, -1. + eps, 1 - eps)),  # rho must be in (-1, 1)
@@ -73,6 +74,19 @@ class HestonDynamicsParameters(DynamicsParameters):
 
     def get_values(self) -> Tuple[float, float, float, float, float]:
         return self.kappa_heston, self.theta_heston, self.sigma_heston, self.rho_heston, self.v0_heston
+
+    @staticmethod
+    def from_calibration_output(
+            opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None
+    ) -> "HestonDynamicsParameters":
+        return HestonDynamicsParameters(
+            S0=S0, r=r,
+            kappa_heston=opt_arr[0],
+            theta_heston=opt_arr[1],
+            sigma_heston=opt_arr[2],
+            rho_heston=opt_arr[3],
+            v0_heston=opt_arr[4],
+        )
 
 
 @dataclass

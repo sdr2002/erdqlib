@@ -7,17 +7,18 @@ from scipy.integrate import quad
 from scipy.interpolate import splev, splrep
 from scipy.optimize import fmin, brute
 
-from erdqlib.scripts.sm_bates import M76J_char_func, B96_eur_option_value_lewis
+from erdqlib.scripts.sm_bates import B96_eur_option_value_lewis
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.common.rate import instantaneous_rate, annualized_continuous_rate, capitalization_factor
 from erdqlib.src.ft.cir import CirCalibrator
 from erdqlib.src.ft.heston import HestonFtiCalibrator
+from erdqlib.src.ft.jump import JumpFtiCalibrator
 from erdqlib.src.mc.bcc import BCCParameters, BccDynamicsParameters, B
 from erdqlib.src.mc.cir import CirDynamicsParameters
 from erdqlib.src.mc.heston import HestonDynamicsParameters
 from erdqlib.src.mc.jump import JumpOnlyDynamicsParameters
 from erdqlib.tests.src.mc.test_heston import heston_params
-from erdqlib.src.ft.data_loader import load_option_data
+from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
 
@@ -30,7 +31,7 @@ def BCC_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):
     BCC (1997) characteristic function
     """
     H93 = HestonFtiCalibrator.calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
-    M76J = M76J_char_func(u, T, lamb, mu, delta)
+    M76J = JumpFtiCalibrator.calculate_characteristic(u, T, lamb, mu, delta, exclude_diffusion=True)
     return H93 * M76J
 
 
