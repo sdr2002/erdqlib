@@ -11,9 +11,21 @@ LOGGER = create_logger(__name__)
 
 @dataclass
 class CirDynamicsParameters(DynamicsParameters):
-    k: float
-    theta: float
-    sigma: float
+    kappa_cir: float
+    theta_cir: float
+    sigma_cir: float
+
+    def get_value_arr(self) -> np.ndarray:
+        return np.array([self.kappa_cir, self.theta_cir, self.sigma_cir])
+
+    @staticmethod
+    def from_opt_result(opt: np.ndarray) -> "CirDynamicsParameters":
+        return CirDynamicsParameters(
+            S0=None, r=None,
+            kappa_cir=float(opt[0]),
+            theta_cir=float(opt[1]),
+            sigma_cir=float(opt[2])
+        )
 
 
 @dataclass
@@ -41,16 +53,16 @@ class Cir(MonteCarlo):
                 continue
 
             # inside your time‐stepping loop, at step t > 0:
-            exp_k_dt = np.exp(-c_params.k * dt)
+            exp_k_dt = np.exp(-c_params.kappa_cir * dt)
             # scale for non‐central χ²
-            c = c_params.sigma ** 2 * (1 - exp_k_dt) / (4 * c_params.k)
+            c = c_params.sigma_cir ** 2 * (1 - exp_k_dt) / (4 * c_params.kappa_cir)
             # degrees of freedom
-            df = 4 * c_params.k * c_params.theta / c_params.sigma ** 2
+            df = 4 * c_params.kappa_cir * c_params.theta_cir / c_params.sigma_cir ** 2
             # non‐centrality parameter
             nc = (
                     x_arr2d[t - 1]
-                    * 4 * c_params.k * exp_k_dt
-                    / (c_params.sigma ** 2 * (1 - exp_k_dt))
+                    * 4 * c_params.kappa_cir * exp_k_dt
+                    / (c_params.sigma_cir ** 2 * (1 - exp_k_dt))
             )
             # exact CIR update
             x_arr2d[t] = c * np.random.noncentral_chisquare(df, nc)
@@ -73,9 +85,9 @@ def example_cir():
         random_seed=0,
 
         S0 = 0.023,
-        k = 0.20,
-        theta = 0.01,
-        sigma = 0.012,
+        kappa_cir= 0.20,
+        theta_cir = 0.01,
+        sigma_cir = 0.012,
         r = None,  # Risk-free rate
     )
 

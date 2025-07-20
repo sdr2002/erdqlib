@@ -5,8 +5,8 @@ from typing import Optional, Tuple, List
 import numpy as np
 
 from erdqlib.src.common.rate import instantaneous_rate
-from erdqlib.src.ft.cir import CirDynamicsParameters
 from erdqlib.src.mc.bates import BatesDynamicsParameters
+from erdqlib.src.mc.cir import CirDynamicsParameters
 
 
 def gamma(kappa_r, sigma_r) -> float:

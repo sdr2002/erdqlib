@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,25 +13,43 @@ from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
 
+HestonSearchGridType: Type = Tuple[
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    Tuple[float, float, float],
+    Tuple[float, float, float]
+]
+
 
 @dataclass
 class HestonDynamicsParameters(DynamicsParameters):
-    v0_heston: float
     kappa_heston: float
-    sigma_heston: float
     theta_heston: float
+    sigma_heston: float
     rho_heston: float
+    v0_heston: float
 
     @staticmethod
-    def get_default_search_grid() -> Dict[str, Tuple[float, float, float]]:
+    def get_default_search_grid() -> HestonSearchGridType:
+        """
+        Dict[str, Tuple[float, float, float]]
         eps: float = 1e-6
         return {
-            "kappa": (2.5, 30. + eps, 5.0),
-            "theta": (0.001, 0.041 + eps, 0.01),
-            "sigma": (0.01, 0.251 + eps, 0.5),
-            "rho": (-0.9, 0.9 + eps, 0.2),
-            "v0": (0.01, 0.031 + eps, 0.01)
+            "kappa_heston": (2.5, 10.6 + eps, 5.0),
+            "theta_heston": (0.01, 0.041 + eps, 0.01),
+            "sigma_heston": (0.05, 0.251 + eps, 0.1),
+            "rho_heston": (-0.75, 0.01 + eps, 0.25),
+            "v0_heston": (0.01, 0.031 + eps, 0.01)
         }
+        """
+        return (
+            (2.5, 10.6, 5.0),  # kappa_heston
+            (0.01, 0.041, 0.01),  # theta_heston
+            (0.05, 0.251, 0.1),  # sigma_heston
+            (-0.75, 0.01, 0.25),  # rho_heston
+            (0.01, 0.031, 0.01)   # v0_heston
+        )
 
     @staticmethod
     def do_parameters_offbound(kappa_v, theta_v, sigma_v, rho, v0) -> bool:

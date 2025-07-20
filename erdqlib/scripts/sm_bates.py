@@ -7,7 +7,7 @@ from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
 from erdqlib.scripts.caculator import FtMethod
-from erdqlib.scripts.sm_heston import H93_char_func, H93_calibration_full
+from erdqlib.src.ft.heston import HestonFtiCalibrator
 from erdqlib.scripts.sm_jump import M76J_char_func
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.mc.heston import HestonDynamicsParameters
@@ -20,7 +20,7 @@ LOGGER = create_logger(__name__)
 
 def B96_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):
     """Bates (1996) characteristic function."""
-    H93 = H93_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
+    H93 = HestonFtiCalibrator.calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
     M76J = M76J_char_func(u, T, lamb, mu, delta)
     return H93 * M76J
 
@@ -214,38 +214,42 @@ def B96_jump_calculate_model_values(options, S0, kappa_v, theta_v, sigma_v, rho,
         values.append(model_value)
     return np.array(values)
 
-def plot_calibration_results(options, model_values, side: OptionSide):
+def plot_Bates_short(df_options: pd.DataFrame, model_values: np.array, side: OptionSide):
     """Plot market and model prices for each maturity and OptionSide."""
-    options = options.copy()
-    options[OptionDataColumn.MODEL] = model_values
-    plt.figure(figsize=(8, 6))
-    plt.subplot(211)
-    plt.grid()
-    plt.title("Maturity %s %s" % (str(options[OptionDataColumn.MATURITY].iloc[0])[:10], side.name))
-    plt.ylabel("option values")
-    plt.plot(options.Strike, options[side.name], "b", label="market")
-    plt.plot(options.Strike, options.Model, "ro", label="model")
-    plt.legend(loc=0)
-    plt.axis([
-        min(options.Strike) - 10,
-        max(options.Strike) + 10,
-        min(options[side.name]) - 10,
-        max(options[side.name]) + 10,
-    ])
-    plt.subplot(212)
-    plt.grid()
-    wi = 5.0
-    diffs = options.Model.values - options[side.name].values
-    plt.bar(options.Strike.values - wi / 2, diffs, width=wi)
-    plt.ylabel("difference")
-    plt.axis([
-        min(options.Strike) - 10,
-        max(options.Strike) + 10,
-        min(diffs) * 1.1,
-        max(diffs) * 1.1,
-    ])
-    plt.tight_layout()
-    plt.show()
+    df_options = df_options.copy()
+    df_options[OptionDataColumn.MODEL] = model_values
+    for maturity, df_options_per_maturity in df_options.groupby(OptionDataColumn.MATURITY):        
+        plt.figure(figsize=(8, 6))
+        plt.subplot(211)
+        plt.grid()
+        plt.title(f"(Short-calib) {side.name} Maturity {maturity}")
+        plt.ylabel("option values")
+        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[side.name], "b", label="market")
+        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[OptionDataColumn.MODEL], "ro", label="model")
+        plt.legend(loc=0)
+        axis1 = [
+            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
+            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
+            min(df_options_per_maturity[side.name]) - 10,
+            max(df_options_per_maturity[side.name]) + 10,
+        ]
+        plt.axis(axis1) # type: ignore
+
+        plt.subplot(212)
+        plt.grid()
+        wi = 5.0
+        diffs = df_options_per_maturity[OptionDataColumn.MODEL].values - df_options_per_maturity[side.name].values
+        plt.bar(df_options_per_maturity[OptionDataColumn.STRIKE].values - wi / 2, diffs, width=wi)
+        plt.ylabel("difference")
+        axis2 = [
+            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
+            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
+            min(diffs) * 1.1,
+            max(diffs) * 1.1,
+        ]
+        plt.axis(axis2)  # type: ignore
+        plt.tight_layout()
+        plt.show()
 
 
 def B96_full_error_function(
@@ -309,38 +313,42 @@ def B96_calculate_model_values(df_options: pd.DataFrame, S0: float, p0: np.ndarr
     return np.array(values)
 
 
-def plot_full_calibration_results(df_options: pd.DataFrame, model_values: np.ndarray, side: OptionSide):
+def plot_Bates_full(df_options: pd.DataFrame, model_values: np.ndarray, side: OptionSide):
     """Plot market and model prices for each maturity and OptionSide (full calibration)."""
     df_options = df_options.copy()
     df_options[OptionDataColumn.MODEL] = model_values
-    plt.figure(figsize=(8, 6))
-    plt.subplot(211)
-    plt.grid()
-    plt.title("Maturity %s %s (Full Bates)" % (str(df_options[OptionDataColumn.MATURITY].iloc[0])[:10], side.name))
-    plt.ylabel("option values")
-    plt.plot(df_options[OptionDataColumn.STRIKE], df_options[side.name], "b", label="market")
-    plt.plot(df_options[OptionDataColumn.STRIKE], df_options[OptionDataColumn.MODEL], "ro", label="model")
-    plt.legend(loc=0)
-    plt.axis([
-        min(df_options[OptionDataColumn.STRIKE]) - 10,
-        max(df_options[OptionDataColumn.STRIKE]) + 10,
-        min(df_options[side.name]) - 10,
-        max(df_options[side.name]) + 10,
-    ])
-    plt.subplot(212)
-    plt.grid()
-    wi = 5.0
-    diffs = df_options[OptionDataColumn.MODEL].values - df_options[side.name].values
-    plt.bar(df_options[OptionDataColumn.STRIKE].values - wi / 2, diffs, width=wi)
-    plt.ylabel("difference")
-    plt.axis([
-        min(df_options[OptionDataColumn.STRIKE]) - 10,
-        max(df_options[OptionDataColumn.STRIKE]) + 10,
-        min(diffs) * 1.1,
-        max(diffs) * 1.1,
-    ])
-    plt.tight_layout()
-    plt.show()
+    for maturity, df_options_per_maturity in df_options.groupby(OptionDataColumn.MATURITY):
+        plt.figure(figsize=(8, 6))
+        plt.subplot(211)
+        plt.grid()
+        plt.title(f"(Full-calib) {side.name} at Maturity {maturity}")
+        plt.ylabel("option values")
+        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[side.name], "b", label="market")
+        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[OptionDataColumn.MODEL], "ro", label="model")
+        plt.legend(loc=0)
+        axis1=[
+            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
+            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
+            min(df_options_per_maturity[side.name]) - 10,
+            max(df_options_per_maturity[side.name]) + 10,
+        ]
+        plt.axis(axis1)  # type: ignore
+
+        plt.subplot(212)
+        plt.grid()
+        wi = 5.0
+        diffs = df_options_per_maturity[OptionDataColumn.MODEL].values - df_options_per_maturity[side.name].values
+        plt.bar(df_options_per_maturity[OptionDataColumn.STRIKE].values - wi / 2, diffs, width=wi)
+        plt.ylabel("difference")
+        axis2 = [
+            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
+            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
+            min(diffs) * 1.1,
+            max(diffs) * 1.1,
+        ]
+        plt.axis(axis2)  # type: ignore
+        plt.tight_layout()
+        plt.show()
 
 
 def ex_pricing():
@@ -385,7 +393,7 @@ def get_calibrated_heston_params(
     elif data_path:
         #Calibrate Heston model parameters to market data first
         df_options = load_option_data(path_str=data_path, S0=S0, r_provider=lambda *_: r)
-        calib_result: HestonDynamicsParameters = H93_calibration_full(
+        calib_result: HestonDynamicsParameters = HestonFtiCalibrator.calibrate(
             df_options=df_options, S0=S0, r=r, side=side,
             search_grid=HestonDynamicsParameters.get_default_search_grid()
         )
@@ -427,7 +435,11 @@ def ex_calibration(
     mertonj_result = B96_calibration_short(df_options, S0, *heston_result.get_values(), side) # lamb, mu, delta
     model_values_short = B96_jump_calculate_model_values(df_options, S0, *heston_result.get_values(), mertonj_result, side)
     if not skip_plot:
-        plot_calibration_results(df_options, model_values_short, side)
+        plot_Bates_short(
+            df_options=df_options,
+            model_values=model_values_short,
+            side=side
+        )
 
     # Full Bates calibration
     LOGGER.info("\n--- Full Bates calibration ---")
@@ -438,7 +450,7 @@ def ex_calibration(
         initial_params=np.array(params_full, dtype=np.float64), side=side
     )
     if not skip_plot:
-        plot_full_calibration_results(
+        plot_Bates_full(
             df_options=df_options,
             model_values=B96_calculate_model_values(df_options, S0, params_bates, side=side),
             side=side

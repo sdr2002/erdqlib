@@ -8,11 +8,12 @@ from scipy.interpolate import splev, splrep
 from scipy.optimize import fmin, brute
 
 from erdqlib.scripts.sm_bates import M76J_char_func, B96_eur_option_value_lewis
-from erdqlib.scripts.sm_heston import H93_char_func, H93_calibration_full
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.common.rate import instantaneous_rate, annualized_continuous_rate, capitalization_factor
-from erdqlib.src.ft.cir import CirDynamicsParameters, CirCalibrator
+from erdqlib.src.ft.cir import CirCalibrator
+from erdqlib.src.ft.heston import HestonFtiCalibrator
 from erdqlib.src.mc.bcc import BCCParameters, BccDynamicsParameters, B
+from erdqlib.src.mc.cir import CirDynamicsParameters
 from erdqlib.src.mc.heston import HestonDynamicsParameters
 from erdqlib.src.mc.jump import JumpOnlyDynamicsParameters
 from erdqlib.tests.src.mc.test_heston import heston_params
@@ -28,7 +29,7 @@ def BCC_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):
     """
     BCC (1997) characteristic function
     """
-    H93 = H93_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
+    H93 = HestonFtiCalibrator.calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
     M76J = M76J_char_func(u, T, lamb, mu, delta)
     return H93 * M76J
 
@@ -243,14 +244,15 @@ def plot_BCC_short(
         S0: float,
         side: OptionSide
 ):
-    df_options[OptionDataColumn.MODEL] = BCC_jump_calculate_model_values(
-        mertonj_params=mertonj_params, heston_params=heston_params, df_options=df_options, S0=S0, side=side
+    df_options_to_plot = df_options.copy()
+    df_options_to_plot[OptionDataColumn.MODEL] = BCC_jump_calculate_model_values(
+        mertonj_params=mertonj_params, heston_params=heston_params, df_options=df_options_to_plot, S0=S0, side=side
     )
-    for maturity, df_options_per_maturity in df_options.groupby(OptionDataColumn.MATURITY):
+    for maturity, df_options_per_maturity in df_options_to_plot.groupby(OptionDataColumn.MATURITY):
         plt.figure(figsize=(8, 6))
         plt.subplot(211)
         plt.grid()
-        plt.title(f"{side.name} at Maturity {maturity}")
+        plt.title(f"(Short-calib) {side.name} at Maturity {maturity}")
         plt.ylabel("option values")
         plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[side.name], "b", label="market")
         plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[OptionDataColumn.MODEL], "ro", label="model")
@@ -338,7 +340,7 @@ def plot_BCC_full(bcc_params: BccDynamicsParameters, df_options: pd.DataFrame, s
         plt.figure(figsize=(8, 6))
         plt.subplot(211)
         plt.grid()
-        plt.title(f"{side.name} at Maturity {maturity}")
+        plt.title(f"(Full-calib) {side.name} at Maturity {maturity}")
         plt.ylabel("option values")
         plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[side.name], "b", label="market")
         plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[OptionDataColumn.MODEL], "ro", label="model")
@@ -448,7 +450,7 @@ def ex_calibration(data_path: str, side: OptionSide, skip_plot: bool):
     ### Short calibration
     # Heston component calib
     LOGGER.info("\n--- Short (Heston) calibration ---")
-    params_heston: HestonDynamicsParameters = H93_calibration_full(
+    params_heston: HestonDynamicsParameters = HestonFtiCalibrator.calibrate(
         df_options=df_options, S0=S0, r=None, side=side,
         search_grid=HestonDynamicsParameters.get_default_search_grid()
     )

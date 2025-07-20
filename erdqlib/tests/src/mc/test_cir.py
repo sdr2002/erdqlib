@@ -19,9 +19,9 @@ def cir_params():
         random_seed=0,
 
         S0=0.03,
-        k=0.20,
-        theta=0.01,
-        sigma=0.0012,
+        kappa_cir=0.20,
+        theta_cir=0.01,
+        sigma_cir=0.0012,
         r=0.001,  # shift parameter, which is Risk-free rate in risk-neutral measure
     )
 

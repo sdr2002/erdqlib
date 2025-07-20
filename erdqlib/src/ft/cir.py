@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from typing import Tuple, List
 
 import numpy as np
@@ -7,37 +6,13 @@ from matplotlib import pyplot as plt
 from scipy.interpolate import splev, splrep
 from scipy.optimize import fmin
 
-from erdqlib.src.common.rate import capitalization_factor, annualized_continuous_rate
-from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.common.option import OptionDataColumn
+from erdqlib.src.common.rate import capitalization_factor, annualized_continuous_rate
+from erdqlib.src.mc.cir import CirDynamicsParameters
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
 
 LOGGER = create_logger(__name__)
-
-
-@dataclass
-class CirDynamicsParameters(DynamicsParameters):
-    kappa_cir: float
-    theta_cir: float
-    sigma_cir: float
-
-    def get_value_arr(self) -> np.ndarray:
-        return np.array([self.kappa_cir, self.theta_cir, self.sigma_cir])
-
-    @staticmethod
-    def from_opt_result(opt: np.ndarray) -> "CirDynamicsParameters":
-        return CirDynamicsParameters(
-            S0=None, r=None,
-            kappa_cir=float(opt[0]),
-            theta_cir=float(opt[1]),
-            sigma_cir=float(opt[2])
-        )
-
-
-@dataclass
-class CirParameters(ModelParameters, CirDynamicsParameters):
-    pass
 
 
 class CirCalibrator:
