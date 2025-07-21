@@ -25,7 +25,7 @@ class JumpFtiCalibrator(FtiCalibrator):
     @staticmethod
     def calculate_characteristic(
             u: complex, T: float, r: float,
-            lamb: float, mu: float, delta: float,
+            lambd: float, mu: float, delta: float,
             sigma: Optional[float] = None, exclude_diffusion: bool = False
     ) -> complex:
         """
@@ -42,21 +42,21 @@ class JumpFtiCalibrator(FtiCalibrator):
         char_func_value: complex
         omega: np.float64
         if exclude_diffusion:
-            omega = -lamb * (np.exp(mu + 0.5 * delta ** 2) - 1)
+            omega = -lambd * (np.exp(mu + 0.5 * delta ** 2) - 1)
             char_func_value = np.exp(
                 (
                         1j * u * omega
-                        + lamb * (np.exp(1j * u * mu - u ** 2 * delta ** 2 * 0.5) - 1)
+                        + lambd * (np.exp(1j * u * mu - u ** 2 * delta ** 2 * 0.5) - 1)
                 ) * T
             )
         else:
             assert sigma is not None, "Delta must be provided if diffusion is included."
-            omega = r - 0.5 * sigma ** 2 - lamb * (np.exp(mu + 0.5 * delta ** 2) - 1)
+            omega = r - 0.5 * sigma ** 2 - lambd * (np.exp(mu + 0.5 * delta ** 2) - 1)
             char_func_value = np.exp(
                 (
                         1j * u * omega
                         - 0.5 * u ** 2 * sigma ** 2
-                        + lamb * (np.exp(1j * u * mu - 0.5 * u ** 2 * delta ** 2) - 1)
+                        + lambd * (np.exp(1j * u * mu - 0.5 * u ** 2 * delta ** 2) - 1)
                 ) * T
             )
         return char_func_value
@@ -75,7 +75,7 @@ class JumpFtiCalibrator(FtiCalibrator):
            Re[ e^{i·u·ln(S₀/K)} · φ(u − i/2, T) ] / (u² + 1/4)
         """
         char: complex = JumpFtiCalibrator.calculate_characteristic(
-            u=u - 0.5j, T=T, r=r, lamb=lambd, mu=mu, delta=delta, sigma=sigma
+            u=u - 0.5j, T=T, r=r, lambd=lambd, mu=mu, delta=delta, sigma=sigma
         )
         return (np.exp(1j * u * np.log(S0 / K)) * char).real / (u ** 2 + 0.25)
 
@@ -160,7 +160,7 @@ class JumpFtiCalibrator(FtiCalibrator):
         p_opt: np.array = fmin(
             lambda p: JumpFtiCalibrator.calculate_error(p, df_options, S0, side, print_iter, min_RMSE),
             p0, xtol=1e-4, ftol=1e-4, maxiter=550, maxfun=1050
-        )  # type: ignore
+        )
         return JumpDynamicsParameters.from_calibration_output(opt_arr=p_opt, S0=S0, r=r)
 
 
@@ -168,14 +168,14 @@ def plot_Jump(
         opt_params: JumpDynamicsParameters, df_options: pd.DataFrame, S0: float, side: OptionSide
 ):
     """Plot market and model prices for each maturity and OptionSide."""
-    lamb, mu, delta, sigma = opt_params.get_values()
+    lambd, mu, delta, sigma = opt_params.get_values()
     df_options_plt = df_options.copy()
     df_options_plt[OptionDataColumn.MODEL] = 0.0
     for row, option in df_options_plt.iterrows():
         df_options_plt.loc[row, OptionDataColumn.MODEL] = JumpFtiCalibrator.calculate_option_price(
             S0=S0,
             K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
-            sigma=sigma, lambd=lamb, mu=mu, delta=delta,
+            sigma=sigma, lambd=lambd, mu=mu, delta=delta,
             side=side
         )
 
@@ -194,12 +194,12 @@ def ex_pricing():
     T = 1
     r = 0.05
     sigma = 0.4
-    lamb = 1
+    lambd = 1
     mu = -0.2
     delta = 0.1
     for side in [OptionSide.CALL, OptionSide.PUT]:
         value = JumpFtiCalibrator.calculate_option_price(
-            S0=S0, K=K, T=T, r=r, sigma=sigma, lambd=lamb, mu=mu, delta=delta, side=side
+            S0=S0, K=K, T=T, r=r, sigma=sigma, lambd=lambd, mu=mu, delta=delta, side=side
         )
         LOGGER.info(f"Value of the {side.name} option under Merton (1976) is:  ${value}")
 

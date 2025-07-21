@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict
+from typing import Dict, Tuple
 from typing import Self, Optional
 
 import matplotlib.pyplot as plt
@@ -41,6 +41,37 @@ class DynamicsParameters:
         return DynamicsParameters(
             S0=self.S0, r=self.r
         )
+
+    @staticmethod
+    def do_parameters_offbound(*args, **kwargs) -> bool:
+        """
+        Check if any of the parameters are off the bounds.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
+
+    def get_values(self) -> Tuple[...]:
+        """
+        Get the values of the dynamics parameters.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
+
+    @staticmethod
+    def from_calibration_output(opt_arr: np.ndarray, *_, **__) -> "DynamicsParameters":
+        """
+        Create an instance of the dynamics parameters from calibration output.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
+
+    @staticmethod
+    def get_default_search_grid() -> Tuple[...]:
+        """
+        Get the default search grid for the dynamics parameters.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
 
 
 @dataclass

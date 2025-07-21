@@ -7,7 +7,7 @@ from scipy.integrate import quad
 from scipy.interpolate import splev, splrep
 from scipy.optimize import fmin, brute
 
-from erdqlib.scripts.sm_bates import B96_eur_option_value_lewis
+from erdqlib.src.ft.bates import BatesFtiCalibrator
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.common.rate import instantaneous_rate, annualized_continuous_rate, capitalization_factor
 from erdqlib.src.ft.cir import CirCalibrator
@@ -26,22 +26,29 @@ LOGGER = create_logger(__name__)
 
 
 # BCC (1997) characteristic function (H93+M76)
-def BCC_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):
+def BCC_char_func(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta):
     """
     BCC (1997) characteristic function
     """
-    H93 = HestonFtiCalibrator.calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
-    M76J = JumpFtiCalibrator.calculate_characteristic(u, T, lamb, mu, delta, exclude_diffusion=True)
+    H93 = HestonFtiCalibrator.calculate_characteristic(
+        u=u, T=T, r=r,
+        kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0
+    )
+    M76J = JumpFtiCalibrator.calculate_characteristic(
+        u=u, T=T, r=None,
+        lambd=lambd, mu=mu, delta=delta,
+        exclude_diffusion=True
+    )
     return H93 * M76J
 
 
 # Lewis (2001) integral value of BCC (1997)
-def BCC_int_func(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta):
+def BCC_int_func(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta):
     """
     Lewis (2001) integral value for BCC (1997) characteristic function
     """
     char_func_value = BCC_char_func(
-        u - 1j * 0.5, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta
+        u - 1j * 0.5, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta
     )
     int_func_value = (
             1 / (u ** 2 + 0.25) * (np.exp(1j * u * np.log(S0 / K)) * char_func_value).real
@@ -50,7 +57,7 @@ def BCC_int_func(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, d
 
 
 def BCC_eur_option_value_lewis(
-        S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta, side: OptionSide
+        S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta, side: OptionSide
 ) -> float:
     """
     Valuation of European call option in B96 Model via Lewis (2001)
@@ -74,7 +81,7 @@ def BCC_eur_option_value_lewis(
         correlation between variance and stock/index level
     v0: float
         initial level of variance
-    lamb: float
+    lambd: float
         jump intensity
     mu: float
         expected jump size
@@ -84,7 +91,7 @@ def BCC_eur_option_value_lewis(
     """
     int_value = quad(
         lambda u: BCC_int_func(
-            u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta
+            u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta
         ),
         0,
         np.inf,
@@ -106,9 +113,9 @@ def BCC_error_function_short(
     """
     Error function for BCC (1997) model
     """
-    lamb, mu, delta = task_params
+    lambd, mu, delta = task_params
     kappa_v, theta_v, sigma_v, rho, v0 = heston_params.get_values()
-    if JumpOnlyDynamicsParameters.do_parameters_offbound(lambd=lamb, mu=mu, delta=delta):
+    if JumpOnlyDynamicsParameters.do_parameters_offbound(lambd=lambd, mu=mu, delta=delta):
         return 5000.0
     se = []
     for row, option in df_options.iterrows():
@@ -116,7 +123,7 @@ def BCC_error_function_short(
             S0,
             option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
             kappa_v, theta_v, sigma_v, rho, v0,
-            lamb, mu, delta,
+            lambd, mu, delta,
             side=side
         )
         se.append((model_value - option[side.name]) ** 2)
@@ -140,7 +147,7 @@ def BCC_error_function_full(
     """
     Error function for full parameter calibration of BCC model
     """
-    kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta = task_params
+    kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta = task_params
     # Parameter bounds
     if HestonDynamicsParameters.do_parameters_offbound(kappa_v, theta_v, sigma_v, rho, v0):
         return 5000.0
@@ -151,7 +158,7 @@ def BCC_error_function_full(
             S0,
             option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
             kappa_v, theta_v, sigma_v, rho, v0,
-            lamb, mu, delta,
+            lambd, mu, delta,
             side=side
         )
         se.append((model_value - option[side.name]) ** 2)
@@ -197,7 +204,7 @@ def BCC_calibration_short(
     # second run with local, convex minimization
     # (dig deeper where promising)
     LOGGER.info("fmin optimization begins")
-    opt2: np.ndarray = fmin(  # type: ignore
+    opt2: np.ndarray = fmin(
         lambda p: BCC_error_function_short(
             task_params=p, heston_params=heston_params,
             df_options=df_options, S0=S0,
@@ -208,7 +215,7 @@ def BCC_calibration_short(
         ftol=0.0000001,
         maxiter=550,
         maxfun=750,
-    )
+    )[0]
     LOGGER.info(
         f"Fmin result: {print_iter[0]} | [{', '.join(f'{x:.2f}' for x in opt2)}] | {min_MSE[0]:7.3f}"
     )
@@ -223,7 +230,7 @@ def BCC_jump_calculate_model_values(
         df_options: pd.DataFrame, S0: float, side: OptionSide
 ) -> np.ndarray:
     """Calculates all model values given parameter vector p0."""
-    lamb, mu, delta = mertonj_params.get_values()
+    lambd, mu, delta = mertonj_params.get_values()
     kappa_v, theta_v, sigma_v, rho, v0 = heston_params.get_values()
     values = []
     for row, option in df_options.iterrows():
@@ -231,7 +238,7 @@ def BCC_jump_calculate_model_values(
             S0,
             option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
             kappa_v, theta_v, sigma_v, rho, v0,
-            lamb, mu, delta,
+            lambd, mu, delta,
             side=side
         )
         values.append(model_value)
@@ -292,7 +299,7 @@ def BCC_calibration_full(
     min_MSE = [5000.0]
 
     LOGGER.info("fmin optimization begins")
-    opt: np.ndarray = fmin(  # type: ignore
+    opt: np.ndarray = fmin(
         lambda p: BCC_error_function_full(p, df_options, S0, print_iter, min_MSE, side),
         initial_params,
         xtol=0.000001, ftol=0.000001, maxiter=450, maxfun=750
@@ -321,14 +328,14 @@ def BCC_calibration_full(
 
 def BCC_calculate_model_values(p0: BccDynamicsParameters, df_options: pd.DataFrame, side: OptionSide) -> np.array:
     """Calculates all model values given parameter vector p0."""
-    kappa_v, theta_v, sigma_v, rho, v0, lamb, mu, delta = p0.get_bates_parameters().get_values()
+    kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta = p0.get_bates_parameters().get_values()
     values = []
     for row, option in df_options.iterrows():
         model_value = BCC_eur_option_value_lewis(
             p0.S0,
             option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
             kappa_v, theta_v, sigma_v, rho, v0,
-            lamb, mu, delta,
+            lambd, mu, delta,
             side=side
         )
         values.append(model_value)
@@ -385,13 +392,13 @@ def ex_pricing():
         theta_v=0.026,
         sigma_v=0.978,
         rho=-0.821,
-        lamb=0.008,
+        lambd=0.008,
         mu=-0.600,
         delta=0.001
     )
 
     side: OptionSide = OptionSide.CALL
-    bates_price: float = B96_eur_option_value_lewis(
+    bates_price: float = BatesFtiCalibrator.calculate_option_price_lewis(
         *bcc_params.get_pricing_params(apply_shortrate=False), side
     )
     LOGGER.info(f"Option value under Bates: {bates_price}")

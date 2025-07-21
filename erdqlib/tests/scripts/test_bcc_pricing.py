@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 
 from erdqlib.src.common.rate import annualized_continuous_rate, implied_yield, capitalization_factor
-from erdqlib.scripts.sm_bates import B96_eur_option_value_lewis
+from erdqlib.src.ft.bates import BatesFtiCalibrator
 from erdqlib.scripts.sm_bcc import BCC_eur_option_value_lewis, BCCParameters
 from erdqlib.src.common.option import OptionSide
 from erdqlib.tool.logger_util import create_logger
@@ -108,7 +108,7 @@ def test_lewis_price_eur_option_on_bcc():
             v0 = 0.035,
 
             # JD
-            lamb = 0.008,
+            lambd = 0.008,
             mu = -0.600,
             delta = 0.001
         ),
@@ -132,7 +132,7 @@ def test_lewis_price_eur_option_on_bcc():
             sigma_v=0.978,
             rho=-0.821,
             v0=0.035,
-            lamb=0.008,
+            lambd=0.008,
             mu=-0.600,
             delta=0.001
         ),
@@ -159,7 +159,7 @@ def test_lewis_price_eur_option_on_bcc():
             rho=0.65,
             v0=0.35,
 
-            lamb=2.8,
+            lambd=2.8,
             mu=0.5,
             delta=0.75
         ),
@@ -186,7 +186,7 @@ def test_lewis_price_eur_option_on_bcc():
             rho=-0.25,
             v0=0.015,
 
-            lamb=1.8,
+            lambd=1.8,
             mu=-0.75,
             delta=0.55
         ),
@@ -213,7 +213,7 @@ def test_lewis_price_eur_option_on_bcc():
             rho=-0.25,
             v0=0.015,
 
-            lamb=1.8,
+            lambd=1.8,
             mu=-0.75,
             delta=0.55
         ),
@@ -242,14 +242,14 @@ def test_compare_eur_option_price_on_bcc_and_bates_via_lewis():
         rho=0.65,
         v0=0.35,
 
-        lamb=2.8,
+        lambd=2.8,
         mu=0.5,
         delta=0.75
     )
 
     side: OptionSide = OptionSide.CALL
 
-    px_bates: float = B96_eur_option_value_lewis(
+    px_bates: float = BatesFtiCalibrator.calculate_option_price_lewis(
         *bcc_params.get_pricing_params(apply_shortrate=False), side
     )
     LOGGER.info(f"{side} value under Bates: {px_bates}")

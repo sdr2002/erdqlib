@@ -217,7 +217,7 @@ class HestonFtiCalibrator(FtiCalibrator):
             ),
             p0, xtol=1e-6, ftol=1e-6, maxiter=750, maxfun=900,
             full_output=False, retall=False, disp=True
-        )  # type: ignore
+        )
 
         return HestonDynamicsParameters.from_calibration_output(opt_arr=p_opt, S0=S0, r=r).get_bounded_parameters()
 
@@ -288,7 +288,7 @@ def ex_calibration(
     LOGGER.info(f"Heston calib: {params_heston}")
 
     if not skip_plot:
-        plot_Heston(params_heston, df_options, S0, side)
+        plot_Bates(params_heston, df_options, S0, side)
 
 
 if __name__ == "__main__":

@@ -60,7 +60,7 @@ class CirCalibrator:
     ) -> CirDynamicsParameters:
         """CIR (1985) Calibration via minimizing Forward rate differences"""
         # np array of kappa_r, theta_r, sigma_r
-        opt: np.ndarray = fmin(  # type: ignore
+        opt: np.ndarray = fmin(
             lambda cir_parms, f=curve_forward_rates, r=r0: CirCalibrator.calculate_error(
                 alpha=cir_parms, curve_forward_rates=f, maturities_ladder=maturities_ladder, r0=r
             ),

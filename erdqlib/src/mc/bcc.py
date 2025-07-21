@@ -107,7 +107,7 @@ class BCCParameters:
     sigma_v: float
     rho: float
     # JD
-    lamb: float
+    lambd: float
     mu: float
     delta: float
 
@@ -133,5 +133,5 @@ class BCCParameters:
         """Get calibration target parameters"""
         return [
             self.kappa_v, self.theta_v, self.sigma_v, self.rho, self.v0,  # Heston
-            self.lamb, self.mu, self.delta  # Merton
+            self.lambd, self.mu, self.delta  # Merton
         ]

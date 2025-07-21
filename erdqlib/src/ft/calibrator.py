@@ -32,6 +32,11 @@ class FtiCalibrator(ABC):
 
     @staticmethod
     @abstractmethod
+    def calculate_option_price_batch(df_options: pd.DataFrame, *args, **kwargs) -> np.ndarray:
+        raise NotImplementedError("Child class must implement")
+
+    @staticmethod
+    @abstractmethod
     def calculate_error(
         p0: np.ndarray, df_options: pd.DataFrame, print_iter: List[int], min_MSE: List[float], s0: float, side: Any
     ) -> float:
