@@ -8,7 +8,7 @@ from scipy.optimize import brute, fmin
 
 from erdqlib.src.common.option import OptionDataColumn, OptionType
 from erdqlib.src.common.option import OptionSide
-from erdqlib.src.ft.calibrator import FtiCalibrator
+from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod
 from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.src.mc.heston import HestonDynamicsParameters, HestonSearchGridType
 from erdqlib.tool.logger_util import create_logger
@@ -23,9 +23,9 @@ class HestonFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_characteristic(
-            u: complex, T: float, r: float,
+            u: complex | np.ndarray, T: float, r: float,
             kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float
-    ) -> complex:
+    ) -> complex | np.ndarray:
         r"""
         Heston (1993) characteristic function for Lewis (2001) Fourier pricing.
 
@@ -92,12 +92,111 @@ class HestonFtiCalibrator(FtiCalibrator):
         return (np.exp(1j * u * np.log(S0 / K)) * psi).real / (u ** 2 + 0.25)
 
     @staticmethod
+    def calculate_option_price_lewis(
+            S0: float, K: float, T: float, r: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            side: OptionSide
+    ) -> float:
+        int_value = quad(
+            lambda u: HestonFtiCalibrator.calculate_integral_characteristic(
+                u=u, S0=S0, K=K, T=T, r=r,
+                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0
+            ),
+            0,
+            np.inf,
+            limit=250,
+        )[0]
+        call_value = max(0, S0 - np.exp(-r * T) * np.sqrt(S0 * K) / np.pi * int_value)
+        if side is OptionSide.CALL:
+            return call_value
+        elif side is OptionSide.PUT:
+            return call_value - S0 + K * np.exp(-r * T)
+        raise ValueError(f"Invalid side: {side}")
+
+    @staticmethod
+    def calculate_option_price_carrmadan(
+            S0: float, K: float, T: float, r: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            side: OptionSide
+    ) -> float:
+        """
+        Call option price in Bates (1996) under FFT
+        """
+        k: float = np.log(K / S0)
+        g: int = 1  # Factor to increase accuracy
+        N: int = g * 4096
+        eps: float = (g * 150) ** -1
+        eta: float = 2 * np.pi / (N * eps)
+        b: float = 0.5 * N * eps - k
+        u: np.ndarray = np.arange(1, N + 1, 1)
+        vo: np.ndarray = eta * (u - 1)
+
+        # Modifications to ensure integrability
+        if S0 >= 0.95 * K:  # ITM Case
+            alpha: float = 1.5
+            v: np.ndarray = vo - (alpha + 1) * 1j
+            modcharFunc: np.ndarray = np.exp(-r * T) * (
+                HestonFtiCalibrator.calculate_characteristic(
+                    u=v, T=T, r=r,
+                    kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0
+                ) / (alpha ** 2 + alpha - vo ** 2 + 1j * (2 * alpha + 1) * vo)
+            )
+
+        else:
+            alpha = 1.1
+            v = (vo - 1j * alpha) - 1j
+            modcharFunc1 = np.exp(-r * T) * (
+                1 / (1 + 1j * (vo - 1j * alpha))
+                - np.exp(r * T) / (1j * (vo - 1j * alpha))
+                - HestonFtiCalibrator.calculate_characteristic(
+                    u=v, T=T, r=r,
+                    kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0
+                ) / ((vo - 1j * alpha) ** 2 - 1j * (vo - 1j * alpha))
+            )
+
+            v = (vo + 1j * alpha) - 1j
+            modcharFunc2 = np.exp(-r * T) * (
+                1 / (1 + 1j * (vo + 1j * alpha))
+                - np.exp(r * T) / (1j * (vo + 1j * alpha))
+                - HestonFtiCalibrator.calculate_characteristic(
+                    u=v, T=T, r=r,
+                    kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0
+                )
+                / ((vo + 1j * alpha) ** 2 - 1j * (vo + 1j * alpha))
+            )
+
+        # Numerical FFT Routine
+        delt = np.zeros(N)
+        delt[0] = 1
+        j = np.arange(1, N + 1, 1)
+        SimpsonW = (3 + (-1) ** j - delt) / 3
+        if S0 >= 0.95 * K:
+            FFTFunc = np.exp(1j * b * vo) * modcharFunc * eta * SimpsonW
+            payoff = (np.fft.fft(FFTFunc)).real
+            CallValueM = np.exp(-alpha * k) / np.pi * payoff
+        else:
+            FFTFunc = (
+                    np.exp(1j * b * vo) * (modcharFunc1 - modcharFunc2) * 0.5 * eta * SimpsonW
+            )
+            payoff = (np.fft.fft(FFTFunc)).real
+            CallValueM = payoff / (np.sinh(alpha * k) * np.pi)
+
+        pos = int((k + b) / eps)
+        call_value = CallValueM[pos] * S0
+        if side is OptionSide.CALL:
+            return call_value
+        elif side is OptionSide.PUT:
+            return call_value - S0 + K * np.exp(-r * T)
+        raise ValueError(f"Invalid side: {side}")
+
+    @staticmethod
     def calculate_option_price(
             S0: float, K: float, T: float, r: float,
             kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
-            side: OptionSide, type: OptionType = OptionType.EUROPEAN
+            side: OptionSide, otype: OptionType = OptionType.EUROPEAN,
+            ft_method: FtMethod = FtMethod.LEWIS
     ):
-        if type is not OptionType.EUROPEAN:
+        if otype is not OptionType.EUROPEAN:
             raise NotImplementedError()
 
         """Valuation of European call option in H93 model via Lewis (2001)
@@ -127,23 +226,45 @@ class HestonFtiCalibrator(FtiCalibrator):
         call_value: float
             present value of European call option
         """
-        int_value = quad(
-            lambda u: HestonFtiCalibrator.calculate_integral_characteristic(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0),
-            0,
-            np.inf,
-            limit=250,
-        )[0]
-        call_value = max(0, S0 - np.exp(-r * T) * np.sqrt(S0 * K) / np.pi * int_value)
-        if side is OptionSide.CALL:
-            return call_value
-        elif side is OptionSide.PUT:
-            return call_value - S0 + K * np.exp(-r * T)
-        raise ValueError(f"Invalid side: {side}")
+        if ft_method is FtMethod.LEWIS:
+            return HestonFtiCalibrator.calculate_option_price_lewis(
+                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0, side=side
+            )
+        elif ft_method is FtMethod.CARRMADAN:
+            return HestonFtiCalibrator.calculate_option_price_carrmadan(
+                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0, side=side
+            )
+        raise ValueError(f"Invalid FtMethod method: {ft_method}")
+
+    @staticmethod
+    def calculate_option_price_batch(
+            df_options: pd.DataFrame, S0: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            side: OptionSide
+    ) -> np.array:
+        """Batch calculation of option prices for a DataFrame of options."""
+        values = []
+        for _, option in df_options.iterrows():
+            model_value = HestonFtiCalibrator.calculate_option_price(
+                S0=S0,
+                K=option[OptionDataColumn.STRIKE],
+                T=option[OptionDataColumn.TENOR],
+                r=option[OptionDataColumn.RATE],
+                kappa_v=kappa_v,
+                theta_v=theta_v,
+                sigma_v=sigma_v,
+                rho=rho,
+                v0=v0,
+                side=side,
+            )
+            values.append(model_value)
+        return np.array(values)
 
     @staticmethod
     def calculate_error(
             p0: np.ndarray, df_options, print_iter: List[int],
             min_MSE_record: List[float], s0: float, side: OptionSide,
+            ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         """Error function for parameter calibration via
         Lewis (2001) Fourier approach for Heston (1993).
@@ -177,7 +298,7 @@ class HestonFtiCalibrator(FtiCalibrator):
                 S0=s0,
                 K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
                 kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
-                side=side
+                side=side, ft_method=ft_method
             )
             se.append((model_value - option[side.name]) ** 2)
         MSE = sum(se) / len(se)
@@ -193,7 +314,8 @@ class HestonFtiCalibrator(FtiCalibrator):
             S0: float,
             r: Optional[float],
             side: OptionSide,
-            search_grid: HestonSearchGridType
+            search_grid: HestonSearchGridType,
+            ft_method: FtMethod = FtMethod.LEWIS
     ) -> HestonDynamicsParameters:
         """Calibrates Heston (1993) stochastic volatility model to market quotes."""
         print_iter = [0]
@@ -202,7 +324,9 @@ class HestonFtiCalibrator(FtiCalibrator):
         LOGGER.info("Brute-force begins")
         p0 = brute(
             lambda params, data=df_options, s0=S0, option_side=side: HestonFtiCalibrator.calculate_error(
-                params, df_options=data, print_iter=print_iter, min_MSE_record=min_MSE, s0=s0, side=option_side
+                params, df_options=data,
+                print_iter=print_iter, min_MSE_record=min_MSE, s0=s0,
+                side=option_side, ft_method=ft_method
             ),
             search_grid,
             finish=None,
@@ -213,7 +337,8 @@ class HestonFtiCalibrator(FtiCalibrator):
         LOGGER.info("Fmin begins")
         p_opt: np.array = fmin(
             lambda params, data=df_options, s0=S0, option_side=side: HestonFtiCalibrator.calculate_error(
-                params, df_options=data, print_iter=print_iter, min_MSE_record=min_MSE, s0=s0, side=option_side
+                params, df_options=data, print_iter=print_iter, min_MSE_record=min_MSE, s0=s0,
+                side=option_side, ft_method=ft_method
             ),
             p0, xtol=1e-6, ftol=1e-6, maxiter=750, maxfun=900,
             full_output=False, retall=False, disp=True
@@ -222,7 +347,33 @@ class HestonFtiCalibrator(FtiCalibrator):
         return HestonDynamicsParameters.from_calibration_output(opt_arr=p_opt, S0=S0, r=r).get_bounded_parameters()
 
 
+def plot_Heston(
+    opt_params: HestonDynamicsParameters, df_options: pd.DataFrame, S0: float, side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
+):
+    """Plot market and model prices for each maturity and OptionSide."""
+    df_options_plt = df_options.copy()
+    df_options_plt[OptionDataColumn.MODEL] = 0.0
+    for row, option in df_options_plt.iterrows():
+        df_options_plt.loc[row, OptionDataColumn.MODEL] = HestonFtiCalibrator.calculate_option_price(
+            side=side,
+            S0=S0, K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
+            kappa_v=opt_params.kappa_heston, theta_v=opt_params.theta_heston, sigma_v=opt_params.sigma_heston, rho=opt_params.rho_heston, v0=opt_params.v0_heston,
+            ft_method=ft_method
+        )
+
+    for maturity, df_options_per_maturity in df_options_plt.groupby(OptionDataColumn.DAYSTOMATURITY):
+        df_options_per_maturity[[OptionDataColumn.STRIKE] + [side.name, OptionDataColumn.MODEL]].plot(
+            x=OptionDataColumn.STRIKE, y=[side.name, OptionDataColumn.MODEL],
+            style=["b-", "ro"], title=f"Maturity {maturity}D on {side.name}"
+        )
+        plt.axvline(x=S0, color='k', linestyle='--', label="S0")
+        plt.ylabel("Option Value")
+    plt.show()
+
+
 def ex_pricing():
+    ft_method: FtMethod = FtMethod.LEWIS
+
     # Option Parameters
     S0 = 100.0
     K = 100.0
@@ -236,33 +387,12 @@ def ex_pricing():
     rho = 0.1
     v0 = 0.01
 
-    LOGGER.info(
-        "Heston (1993) Call Option Value:   $%10.4f "
-        % HestonFtiCalibrator.calculate_option_price(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, side=OptionSide.CALL)
-    )
-
-
-def plot_Heston(
-    opt_params: HestonDynamicsParameters, df_options: pd.DataFrame, S0: float, side: OptionSide
-):
-    """Plot market and model prices for each maturity and OptionSide."""
-    df_options_plt = df_options.copy()
-    df_options_plt[OptionDataColumn.MODEL] = 0.0
-    for row, option in df_options_plt.iterrows():
-        df_options_plt.loc[row, OptionDataColumn.MODEL] = HestonFtiCalibrator.calculate_option_price(
-            side=side,
-            S0=S0, K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
-            kappa_v=opt_params.kappa_heston, theta_v=opt_params.theta_heston, sigma_v=opt_params.sigma_heston, rho=opt_params.rho_heston, v0=opt_params.v0_heston
+    for side in [OptionSide.CALL, OptionSide.PUT]:
+        value = HestonFtiCalibrator.calculate_option_price(
+            S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+            side=side, ft_method=ft_method
         )
-
-    for maturity, df_options_per_maturity in df_options_plt.groupby(OptionDataColumn.DAYSTOMATURITY):
-        df_options_per_maturity[[OptionDataColumn.STRIKE] + [side.name, OptionDataColumn.MODEL]].plot(
-            x=OptionDataColumn.STRIKE, y=[side.name, OptionDataColumn.MODEL],
-            style=["b-", "ro"], title=f"Maturity {maturity}D on {side.name}"
-        )
-        plt.axvline(x=S0, color='k', linestyle='--', label="S0")
-        plt.ylabel("Option Value")
-    plt.show()
+        LOGGER.info(f"Value of the {side.name} option under Heston is:  ${value}")
 
 
 def ex_calibration(
@@ -274,6 +404,7 @@ def ex_calibration(
     # as of September 30, 2014
     S0 = 3225.93  # EURO STOXX 50 level September 30, 2014
     r = 0.02
+    ft_method: FtMethod = FtMethod.LEWIS
 
     df_options: pd.DataFrame = load_option_data(
         path_str=data_path,
@@ -283,12 +414,13 @@ def ex_calibration(
 
     params_heston: HestonDynamicsParameters = HestonFtiCalibrator.calibrate(
         df_options=df_options, S0=S0, r=r, side=side,
-        search_grid=HestonDynamicsParameters.get_default_search_grid()
+        search_grid=HestonDynamicsParameters.get_default_search_grid(),
+        ft_method=ft_method
     )
     LOGGER.info(f"Heston calib: {params_heston}")
 
     if not skip_plot:
-        plot_Bates(params_heston, df_options, S0, side)
+        plot_Heston(opt_params=params_heston, df_options=df_options, S0=S0, side=side, ft_method=ft_method)
 
 
 if __name__ == "__main__":

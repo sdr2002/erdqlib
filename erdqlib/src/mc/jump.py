@@ -175,7 +175,7 @@ if __name__ == "__main__":
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )}")
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )}")

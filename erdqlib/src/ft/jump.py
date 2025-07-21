@@ -8,7 +8,7 @@ from scipy.optimize import brute, fmin
 
 from erdqlib.src.common.option import OptionDataColumn
 from erdqlib.src.common.option import OptionSide
-from erdqlib.src.ft.calibrator import FtiCalibrator
+from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod
 from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.src.mc.jump import (
     JumpDynamicsParameters, JumpSearchGridType, JumpOnlySearchGridType, JumpOnlyDynamicsParameters
@@ -24,10 +24,10 @@ MIN_RMSE: float = 100.0
 class JumpFtiCalibrator(FtiCalibrator):
     @staticmethod
     def calculate_characteristic(
-            u: complex, T: float, r: float,
+            u: complex | np.ndarray, T: float, r: float,
             lambd: float, mu: float, delta: float,
             sigma: Optional[float] = None, exclude_diffusion: bool = False
-    ) -> complex:
+    ) -> complex | np.ndarray:
         """
         Characteristic function for the Merton ’76 jump-diffusion model.
 
@@ -80,9 +80,9 @@ class JumpFtiCalibrator(FtiCalibrator):
         return (np.exp(1j * u * np.log(S0 / K)) * char).real / (u ** 2 + 0.25)
 
     @staticmethod
-    def calculate_option_price(
+    def calculate_option_price_lewis(
             S0: float, K: float, T: float, r: float,
-            sigma: float, lambd: float, mu: float, delta: float,
+            lambd: float, mu: float, delta: float, sigma: float,
             side: OptionSide
     ) -> float:
         """
@@ -91,7 +91,7 @@ class JumpFtiCalibrator(FtiCalibrator):
         """
         int_value = quad(
             lambda u: JumpFtiCalibrator.calculate_integral_characteristic(
-                u=u, S0=S0, K=K, T=T, r=r, 
+                u=u, S0=S0, K=K, T=T, r=r,
                 sigma=sigma, lambd=lambd, mu=mu, delta=delta
             ),
             a=0, b=50, limit=250,
@@ -105,9 +105,101 @@ class JumpFtiCalibrator(FtiCalibrator):
         raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
+    def calculate_option_price_carrmadan(
+            S0: float, K: float, T: float, r: float,
+            lambd: float, mu: float, delta: float, sigma: float,
+            side: OptionSide
+    ) -> float:
+        """
+        Call option price in Bates (1996) under FFT
+        """
+        k: float = np.log(K / S0)
+        g: int = 1  # Factor to increase accuracy
+        N: int = g * 4096
+        eps: float = (g * 150) ** -1
+        eta: float = 2 * np.pi / (N * eps)
+        b: float = 0.5 * N * eps - k
+        u: np.ndarray = np.arange(1, N + 1, 1)
+        vo: np.ndarray = eta * (u - 1)
+
+        # Modifications to ensure integrability
+        if S0 >= 0.95 * K:  # ITM Case
+            alpha: float = 1.5
+            v: np.ndarray = vo - (alpha + 1) * 1j
+            modcharFunc: np.ndarray = np.exp(-r * T) * (
+                    JumpFtiCalibrator.calculate_characteristic(
+                        u=v, T=T, r=r,
+                        lambd=lambd, mu=mu, delta=delta, sigma=sigma
+                    ) / (alpha ** 2 + alpha - vo ** 2 + 1j * (2 * alpha + 1) * vo)
+            )
+
+        else:
+            alpha = 1.1
+            v = (vo - 1j * alpha) - 1j
+            modcharFunc1 = np.exp(-r * T) * (
+                1 / (1 + 1j * (vo - 1j * alpha))
+                - np.exp(r * T) / (1j * (vo - 1j * alpha))
+                - JumpFtiCalibrator.calculate_characteristic(
+                    u=v, T=T, r=r,
+                    lambd=lambd, mu=mu, delta=delta, sigma=sigma
+                ) / ((vo - 1j * alpha) ** 2 - 1j * (vo - 1j * alpha))
+            )
+
+            v = (vo + 1j * alpha) - 1j
+            modcharFunc2 = np.exp(-r * T) * (
+                1 / (1 + 1j * (vo + 1j * alpha))
+                - np.exp(r * T) / (1j * (vo + 1j * alpha))
+                - JumpFtiCalibrator.calculate_characteristic(
+                    u=v, T=T, r=r,
+                    lambd=lambd, mu=mu, delta=delta, sigma=sigma
+                )/ ((vo + 1j * alpha) ** 2 - 1j * (vo + 1j * alpha))
+            )
+
+        # Numerical FFT Routine
+        delt = np.zeros(N)
+        delt[0] = 1
+        j = np.arange(1, N + 1, 1)
+        SimpsonW = (3 + (-1) ** j - delt) / 3
+        if S0 >= 0.95 * K:
+            FFTFunc = np.exp(1j * b * vo) * modcharFunc * eta * SimpsonW
+            payoff = (np.fft.fft(FFTFunc)).real
+            CallValueM = np.exp(-alpha * k) / np.pi * payoff
+        else:
+            FFTFunc = (
+                    np.exp(1j * b * vo) * (modcharFunc1 - modcharFunc2) * 0.5 * eta * SimpsonW
+            )
+            payoff = (np.fft.fft(FFTFunc)).real
+            CallValueM = payoff / (np.sinh(alpha * k) * np.pi)
+
+        pos = int((k + b) / eps)
+        call_value = CallValueM[pos] * S0
+        if side is OptionSide.CALL:
+            return call_value
+        elif side is OptionSide.PUT:
+            return call_value - S0 + K * np.exp(-r * T)
+        raise ValueError(f"Invalid side: {side}")
+
+    @staticmethod
+    def calculate_option_price(
+            S0: float, K: float, T: float, r: float,
+            sigma: float, lambd: float, mu: float, delta: float,
+            side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
+    ) -> float:
+        if ft_method is FtMethod.LEWIS:
+            return JumpFtiCalibrator.calculate_option_price_lewis(
+                S0=S0, K=K, T=T, r=r, lambd=lambd, mu=mu, delta=delta, sigma=sigma, side=side
+            )
+        elif ft_method is FtMethod.CARRMADAN:
+            return JumpFtiCalibrator.calculate_option_price_carrmadan(
+                S0=S0, K=K, T=T, r=r, lambd=lambd, mu=mu, delta=delta, sigma=sigma, side=side
+            )
+        raise ValueError(f"Invalid FtMethod method: {ft_method}")
+
+    @staticmethod
     def calculate_error(
             jump_params: np.array, df_options: pd.DataFrame, S0: float, side: OptionSide,
-            print_iter: Optional[List[float]] = None, min_RMSE: Optional[List[float]] = None
+            print_iter: Optional[List[float]] = None, min_RMSE: Optional[List[float]] = None,
+            ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         """
         Error function for parameter calibration in Merton'76 model.
@@ -122,7 +214,7 @@ class JumpFtiCalibrator(FtiCalibrator):
                 S0=S0,
                 K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
                 sigma=sigma, lambd=lambd, mu=mu, delta=delta,
-                side=side
+                side=side, ft_method=ft_method
             )
             se.append((model_value - option[side.name]) ** 2)
         rmse: float = np.sqrt(sum(se) / len(se))
@@ -141,7 +233,8 @@ class JumpFtiCalibrator(FtiCalibrator):
             S0: float,
             r: Optional[float],
             side: OptionSide,
-            search_grid: JumpOnlySearchGridType | JumpSearchGridType
+            search_grid: JumpOnlySearchGridType | JumpSearchGridType,
+            ft_method: FtMethod = FtMethod.LEWIS
     ) -> JumpOnlyDynamicsParameters | JumpDynamicsParameters:
         """Calibrates Merton (1976) model to market quotes for given OptionSide."""
         print_iter = [0]
@@ -150,7 +243,7 @@ class JumpFtiCalibrator(FtiCalibrator):
         LOGGER.info("Brute-force begins")
         p0 = brute(
             lambda p, data=df_options, s0=S0, option_side=side: JumpFtiCalibrator.calculate_error(
-                p, df_options=data, S0=s0, side=option_side, print_iter=print_iter, min_RMSE=min_RMSE
+                p, df_options=data, S0=s0, side=option_side, print_iter=print_iter, min_RMSE=min_RMSE, ft_method=ft_method
             ),
             search_grid,
             finish=None,
@@ -158,14 +251,17 @@ class JumpFtiCalibrator(FtiCalibrator):
 
         LOGGER.info("Fmin begins")
         p_opt: np.array = fmin(
-            lambda p: JumpFtiCalibrator.calculate_error(p, df_options, S0, side, print_iter, min_RMSE),
+            lambda p, data=df_options, s0=S0, option_side=side: JumpFtiCalibrator.calculate_error(
+                p, df_options=data, S0=s0, side=option_side, print_iter=print_iter, min_RMSE=min_RMSE, ft_method=ft_method
+            ),
             p0, xtol=1e-4, ftol=1e-4, maxiter=550, maxfun=1050
         )
         return JumpDynamicsParameters.from_calibration_output(opt_arr=p_opt, S0=S0, r=r)
 
 
 def plot_Jump(
-        opt_params: JumpDynamicsParameters, df_options: pd.DataFrame, S0: float, side: OptionSide
+        opt_params: JumpDynamicsParameters, df_options: pd.DataFrame, S0: float,
+        side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
 ):
     """Plot market and model prices for each maturity and OptionSide."""
     lambd, mu, delta, sigma = opt_params.get_values()
@@ -176,7 +272,7 @@ def plot_Jump(
             S0=S0,
             K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
             sigma=sigma, lambd=lambd, mu=mu, delta=delta,
-            side=side
+            side=side, ft_method=ft_method
         )
 
     for maturity, df_options_per_maturity in df_options_plt.groupby(OptionDataColumn.DAYSTOMATURITY):
@@ -189,6 +285,8 @@ def plot_Jump(
 
 def ex_pricing():
     """Example: price a call and put option under Merton (1976) model."""
+    ft_method: FtMethod = FtMethod.CARRMADAN  # or FtMethod.LEWIS
+
     S0 = 100
     K = 100
     T = 1
@@ -199,7 +297,8 @@ def ex_pricing():
     delta = 0.1
     for side in [OptionSide.CALL, OptionSide.PUT]:
         value = JumpFtiCalibrator.calculate_option_price(
-            S0=S0, K=K, T=T, r=r, sigma=sigma, lambd=lambd, mu=mu, delta=delta, side=side
+            S0=S0, K=K, T=T, r=r, sigma=sigma, lambd=lambd, mu=mu, delta=delta,
+            side=side, ft_method=ft_method
         )
         LOGGER.info(f"Value of the {side.name} option under Merton (1976) is:  ${value}")
 
@@ -212,6 +311,7 @@ def ex_calibration(
     """Example: calibrate Merton (1976) model to market data and plot results for given OptionSide."""
     S0 = 3225.93  # EURO STOXX 50 level September 30, 2014
     r = 0.005
+    ft_method: FtMethod = FtMethod.LEWIS
 
     df_options: pd.DataFrame = load_option_data(
         path_str=data_path,
@@ -221,11 +321,12 @@ def ex_calibration(
 
     params_jump: JumpDynamicsParameters = JumpFtiCalibrator.calibrate(
         df_options=df_options, S0=S0, side=side, r=r,
-        search_grid=JumpDynamicsParameters.get_default_search_grid()
+        search_grid=JumpDynamicsParameters.get_default_search_grid(),
+        ft_method=ft_method
     )
     LOGGER.info(f"Jump calib: {params_jump}")
     if not skip_plot:
-        plot_Jump(params_jump, df_options=df_options, S0=S0, side=side)
+        plot_Jump(params_jump, df_options=df_options, S0=S0, side=side, ft_method=ft_method)
 
 
 if __name__ == "__main__":

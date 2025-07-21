@@ -37,7 +37,7 @@ def test_gbm_eur_option_price(gbm_params):
         underlying_path=s_paths,
         d=gbm_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )
@@ -46,7 +46,7 @@ def test_gbm_eur_option_price(gbm_params):
         underlying_path=s_paths,
         d=gbm_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )

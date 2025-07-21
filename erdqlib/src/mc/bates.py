@@ -28,7 +28,7 @@ class BatesDynamicsParameters(HestonDynamicsParameters, JumpOnlyDynamicsParamete
         )
 
     @staticmethod
-    def get_heston_default_search_grid() -> HestonSearchGridType:
+    def get_default_heston_search_grid() -> HestonSearchGridType:
         return (
             (2.5, 25.6, 5.0),  # kappa_heston
             (1e-6, 0.041, 0.01),  # theta_heston
@@ -38,7 +38,7 @@ class BatesDynamicsParameters(HestonDynamicsParameters, JumpOnlyDynamicsParamete
         )
 
     @staticmethod
-    def get_jumponly_default_search_grid() -> JumpOnlySearchGridType:
+    def get_default_jumponly_search_grid() -> JumpOnlySearchGridType:
         """
         Return the search grid for jump-only parameters.
         This is a subset of the Bates search grid.

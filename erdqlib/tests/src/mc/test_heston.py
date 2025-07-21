@@ -43,7 +43,7 @@ def test_heston_eur_option_price(heston_params):
         underlying_path=s_paths,
         d=heston_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )
@@ -52,7 +52,7 @@ def test_heston_eur_option_price(heston_params):
         underlying_path=s_paths,
         d=heston_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )

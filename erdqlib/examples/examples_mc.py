@@ -50,7 +50,7 @@ def q8(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     ):.3g}")
@@ -59,7 +59,7 @@ def q8(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     ):.3g}")
@@ -88,7 +88,7 @@ def q9(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     ):.3g}")
@@ -97,7 +97,7 @@ def q9(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     ):.3g}")
@@ -225,11 +225,11 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
     for o_type in [OptionType.EUROPEAN, OptionType.DOWNANDIN]:
         if o_type == OptionType.EUROPEAN:
             o_info = OptionInfo(
-                type=OptionType.EUROPEAN, K=K, side=side,
+                o_type=OptionType.EUROPEAN, K=K, side=side,
             )
         elif o_type == OptionType.DOWNANDIN:
             o_info = BarrierOptionInfo(
-                type=OptionType.DOWNANDIN, K=K, side=side,
+                o_type=OptionType.DOWNANDIN, K=K, side=side,
                 barrier=barrier
             )
         else:
@@ -286,7 +286,7 @@ def q5(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     )}")
@@ -295,7 +295,7 @@ def q5(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     )}")
@@ -327,7 +327,7 @@ def q6(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     )}")
@@ -336,7 +336,7 @@ def q6(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     )}")
@@ -451,7 +451,7 @@ price the put). Comment on the differences you observe from original Questions
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.,
         verbose=True
@@ -461,7 +461,7 @@ price the put). Comment on the differences you observe from original Questions
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     )}")
@@ -549,11 +549,11 @@ def _q14(S0: float, skip_plot: bool = True):
         for o_type in [OptionType.EUROPEAN, OptionType.UPANDIN]:
             if o_type == OptionType.EUROPEAN:
                 o_info = OptionInfo(
-                    type=OptionType.EUROPEAN, K=K, side=side,
+                    o_type=OptionType.EUROPEAN, K=K, side=side,
                 )
             elif o_type == OptionType.UPANDIN:
                 o_info = BarrierOptionInfo(
-                    type=OptionType.UPANDIN, K=K, side=side,
+                    o_type=OptionType.UPANDIN, K=K, side=side,
                     barrier=barrier
                 )
             else:

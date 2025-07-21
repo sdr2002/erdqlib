@@ -3,12 +3,12 @@ from dataclasses import asdict
 import pandas as pd
 
 from erdqlib.src.common.option import OptionSide, OptionInfo, OptionType
-from erdqlib.src.ft.bates import BatesFtiCalibrator, plot_Bates_full
-from erdqlib.src.ft.heston import HestonFtiCalibrator, plot_Heston
+from erdqlib.src.ft.bates import BatesFtiCalibrator
+from erdqlib.src.ft.calibrator import plot_calibration_result, FtMethod
+from erdqlib.src.ft.heston import HestonFtiCalibrator
 from erdqlib.src.mc.bates import BatesDynamicsParameters
 from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.src.mc.heston import HestonDynamicsParameters, HestonParameters, Heston
-from erdqlib.src.mc.jump import JumpOnlyDynamicsParameters
 from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
@@ -40,7 +40,19 @@ def ex_step1_a():
     '''
     Heston calib for put: HestonDynamicsParameters(S0=232.9, r=0.015, kappa_heston=1.1195502670984554, theta_heston=0.046401794157976295, sigma_heston=0.32233256442193337, rho_heston=-0.9898495790181241, v0_heston=0.1243614465557908)
     '''
-    plot_Heston(opt_params=params_heston, df_options=df_options, S0=S0, side=side)
+    plot_calibration_result(
+        df_options=df_options,
+        model_values=HestonFtiCalibrator.calculate_option_price_batch(
+            df_options=df_options, S0=S0,
+            kappa_v=params_heston.kappa_heston,
+            theta_v=params_heston.theta_heston,
+            sigma_v=params_heston.sigma_heston,
+            rho=params_heston.rho_heston,
+            v0=params_heston.v0_heston,
+            side=side
+        ),
+        side=side
+    )
 
 
 def ex_step1_c():
@@ -79,7 +91,7 @@ def ex_step1_c():
             underlying_path=s_paths,
             d=h_params,
             o=OptionInfo(
-                type=option_type, K=K, side=option_side
+                o_type=option_type, K=K, side=option_side
             ),
             t=0.
         )}")
@@ -99,6 +111,7 @@ def ex_step1_c():
 
 
 def ex_step2_a():
+    """Lewis algo based Bates Calibration on European PUTs."""
     S0 = 232.9
     r = 1.5 / 100
 
@@ -116,15 +129,15 @@ def ex_step2_a():
     side: OptionSide = OptionSide.PUT
     params_bates: BatesDynamicsParameters = BatesFtiCalibrator.calibrate(
         df_options=df_options, S0=S0, r=r, side=side,
-        heston_search_grid=HestonDynamicsParameters.get_default_search_grid(),
-        jumponly_search_grid=JumpOnlyDynamicsParameters.get_default_search_grid()
+        heston_search_grid=BatesDynamicsParameters.get_default_heston_search_grid(),
+        jumponly_search_grid=BatesDynamicsParameters.get_default_jumponly_search_grid(),
     )
     LOGGER.info(f"Bates calib for {side}: {params_bates}")
     '''
-    Bates calib for put: BatesDynamicsParameters(S0=232.9, r=None, lambd_merton=np.float64(0.038991695769667906), mu_merton=np.float64(-0.5909283419483802), delta_merton=np.float64(0.0020056143265649896), kappa_heston=0.1620668058996896, theta_heston=0.19549150663111103, sigma_heston=0.2517247864641945, rho_heston=-0.9892603030965936, v0_heston=0.12987597220099956)
+    Bates calib for put: BatesDynamicsParameters(S0=232.9, r=0.015, lambd_merton=np.float64(0.038991695769667906), mu_merton=np.float64(-0.5909283419483802), delta_merton=np.float64(0.0020056143265649896), kappa_heston=0.1620668058996896, theta_heston=0.19549150663111103, sigma_heston=0.2517247864641945, rho_heston=-0.9892603030965936, v0_heston=0.12987597220099956)
     '''
     kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta = params_bates.get_values()
-    plot_Bates_full(
+    plot_calibration_result(
         df_options=df_options,
         model_values=BatesFtiCalibrator.calculate_option_price_batch(
             df_options=df_options, S0=S0,
@@ -136,10 +149,52 @@ def ex_step2_a():
     )
 
 
+def ex_step2_c():
+    """Carr-Madan algo based Bates Calibration on European PUTs."""
+    S0 = 232.9
+    r = 1.5 / 100
+    ft_method: FtMethod = FtMethod.CARRMADAN
+
+    df_options: pd.DataFrame = load_option_data(
+        path_str=get_path_from_package("erdqlib@examples/data/sm_gwp1_option_data_pivoted.csv"),
+        S0=S0,  # EURO STOXX 50 level September 30, 2014
+        r_provider=lambda *_: r,  # constant short rate
+        strike_tol=None,
+        n_bdays_per_year=365.0,
+        days_to_maturity_target=60
+    )
+    LOGGER.info(f"df_options:\n{df_options.to_markdown(index=False)}")
+
+    # a) Heston Calibration on European PUT
+    side: OptionSide = OptionSide.PUT
+    params_bates: BatesDynamicsParameters = BatesFtiCalibrator.calibrate(
+        df_options=df_options, S0=S0, r=r, side=side,
+        heston_search_grid=BatesDynamicsParameters.get_default_heston_search_grid(),
+        jumponly_search_grid=BatesDynamicsParameters.get_default_jumponly_search_grid(),
+        ft_method=ft_method
+    )
+    LOGGER.info(f"Bates calib for {side}: {params_bates}")
+    '''
+    Bates calib for put: BatesDynamicsParameters(S0=232.9, r=0.015, lambd_merton=np.float64(1.6519104881865774), mu_merton=np.float64(-0.11215354241730985), delta_merton=np.float64(0.3965512332994626), kappa_heston=2.846435947295412e-08, theta_heston=0.17610219057306495, sigma_heston=0.00010012628083022352, rho_heston=0.7055603835367572, v0_heston=0.024265907755035142)
+    '''
+    kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta = params_bates.get_values()
+    plot_calibration_result(
+        df_options=df_options,
+        model_values=BatesFtiCalibrator.calculate_option_price_batch(
+            df_options=df_options, S0=S0,
+            kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+            lambd=lambd, mu=mu, delta=delta,
+            side=side, ft_method=ft_method
+        ),
+        side=side
+    )
+
+
 if __name__ == "__main__":
     # ex_step1_a()
     # ex_step1_c()
 
-    ex_step2_a()
+    # ex_step2_a()
+    ex_step2_c()
 
     pass

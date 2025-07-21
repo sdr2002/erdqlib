@@ -40,7 +40,7 @@ def test_jump_eur_option_price(jump_params):
         underlying_path=s_paths,
         d=jump_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )
@@ -49,7 +49,7 @@ def test_jump_eur_option_price(jump_params):
         underlying_path=s_paths,
         d=jump_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )

@@ -6,9 +6,8 @@ from matplotlib import pyplot as plt
 from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
-from erdqlib.scripts.caculator import FtMethod
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
-from erdqlib.src.ft.calibrator import FtiCalibrator
+from erdqlib.src.ft.calibrator import FtiCalibrator, plot_calibration_result, FtMethod
 from erdqlib.src.ft.heston import HestonFtiCalibrator
 from erdqlib.src.ft.jump import JumpFtiCalibrator
 from erdqlib.src.mc.bates import BatesDynamicsParameters
@@ -23,7 +22,11 @@ LOGGER = create_logger(__name__)
 
 class BatesFtiCalibrator(FtiCalibrator):
     @staticmethod
-    def calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta):
+    def calculate_characteristic(
+            u: complex | np.ndarray, T: float, r: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            lambd: float, mu: float, delta: float
+    ) -> complex | np.ndarray:
         """Bates (1996) characteristic function."""
         H93: complex = HestonFtiCalibrator.calculate_characteristic(u, T, r, kappa_v, theta_v, sigma_v, rho, v0)
         M76J: complex = JumpFtiCalibrator.calculate_characteristic(
@@ -32,7 +35,12 @@ class BatesFtiCalibrator(FtiCalibrator):
         return H93 * M76J
 
     @staticmethod
-    def calculate_integral_characteristic(u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta):
+    def calculate_integral_characteristic(
+            u: float,
+            S0: float, K: float, T: float, r: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            lambd: float, mu: float, delta: float
+    ) -> float:
         """Lewis (2001) integral for Bates (1996) characteristic function."""
         char_func_value = BatesFtiCalibrator.calculate_characteristic(
             u - 0.5j, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta
@@ -41,8 +49,10 @@ class BatesFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_option_price_lewis(
-        S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta, side: OptionSide
-    ):
+            S0: float, K: float, T: float, r: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            lambd: float, mu: float, delta: float, side: OptionSide
+    ) -> float:
         """European option value in Bates (1996) model via Lewis (2001)."""
         int_value = quad(
             lambda u: BatesFtiCalibrator.calculate_integral_characteristic(
@@ -60,20 +70,23 @@ class BatesFtiCalibrator(FtiCalibrator):
         raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
-    def calculate_option_price_carrmadan(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta, side: OptionSide):
+    def calculate_option_price_carrmadan(
+            S0: float, K: float, T: float, r: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            lambd: float, mu: float, delta: float,
+            side: OptionSide
+    ) -> float:
         """
         Call option price in Bates (1996) under FFT
-
         """
-
-        k = np.log(K / S0)
-        g = 1  # Factor to increase accuracy
-        N = g * 4096
-        eps = (g * 150) ** -1
-        eta = 2 * np.pi / (N * eps)
-        b = 0.5 * N * eps - k
-        u = np.arange(1, N + 1, 1)
-        vo = eta * (u - 1)
+        k: float = np.log(K / S0)
+        g: int = 1  # Factor to increase accuracy
+        N: int = g * 4096
+        eps: float = (g * 150) ** -1
+        eta: float = 2 * np.pi / (N * eps)
+        b: float = 0.5 * N * eps - k
+        u: np.ndarray = np.arange(1, N + 1, 1)
+        vo: np.ndarray = eta * (u - 1)
 
         # Modifications to ensure integrability
         if S0 >= 0.95 * K:  # ITM Case
@@ -97,7 +110,6 @@ class BatesFtiCalibrator(FtiCalibrator):
             )
 
             v = (vo + 1j * alpha) - 1j
-
             modcharFunc2 = np.exp(-r * T) * (
                 1 / (1 + 1j * (vo + 1j * alpha))
                 - np.exp(r * T) / (1j * (vo + 1j * alpha))
@@ -124,44 +136,90 @@ class BatesFtiCalibrator(FtiCalibrator):
             CallValueM = payoff / (np.sinh(alpha * k) * np.pi)
 
         pos = int((k + b) / eps)
-        CallValue = CallValueM[pos] * S0
-
+        call_value = CallValueM[pos] * S0
         if side is OptionSide.CALL:
-            return CallValue
+            return call_value
         elif side is OptionSide.PUT:
-            return CallValue - S0 + K * np.exp(-r * T)
+            return call_value - S0 + K * np.exp(-r * T)
         raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
     def calculate_option_price(
         S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta,
-        side: OptionSide, method: FtMethod = FtMethod.LEWIS
+        side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
-        if method is FtMethod.LEWIS:
-            return BatesFtiCalibrator.calculate_option_price_lewis(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta, side)
-        elif method is FtMethod.CARRMADAN:
-            return BatesFtiCalibrator.calculate_option_price_carrmadan(S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta, side)
-        raise ValueError(f"Invalid FtMethod method: {method}")
+        if ft_method is FtMethod.LEWIS:
+            return BatesFtiCalibrator.calculate_option_price_lewis(
+                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+                lambd=lambd, mu=mu, delta=delta, side=side
+            )
+        elif ft_method is FtMethod.CARRMADAN:
+            return BatesFtiCalibrator.calculate_option_price_carrmadan(
+                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+                lambd=lambd, mu=mu, delta=delta, side=side
+            )
+        raise ValueError(f"Invalid FtMethod method: {ft_method}")
+
+    @staticmethod
+    def calculate_option_price_batch(
+            df_options: pd.DataFrame, S0: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            lambd: float, mu: float, delta: float,
+            side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
+    ) -> np.ndarray:
+        """Calculates all model values given parameter vector p0."""
+        values = []
+        for _, option in df_options.iterrows():
+            model_value = BatesFtiCalibrator.calculate_option_price(
+                S0=S0,
+                K=option[OptionDataColumn.STRIKE],
+                T=option[OptionDataColumn.TENOR],
+                r=option[OptionDataColumn.RATE],
+                kappa_v=kappa_v,
+                theta_v=theta_v,
+                sigma_v=sigma_v,
+                rho=rho,
+                v0=v0,
+                lambd=lambd,
+                mu=mu,
+                delta=delta,
+                side=side,
+                ft_method=ft_method
+            )
+            values.append(model_value)
+        return np.array(values)
 
     @staticmethod
     def calculate_error_short(
-            task_params, options, S0,
-            kappa_v, theta_v, sigma_v, rho, v0,
+            task_params: np.ndarray, df_options: pd.DataFrame, S0: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
             side: OptionSide,
-            print_iter=None, min_MSE=None, opt1=None
+            ft_method: FtMethod = FtMethod.LEWIS,
+            print_iter: Optional[List[int]] = None,
+            min_MSE: Optional[List[float]] = None,
+            opt1: Optional[np.ndarray] = None
     ) -> float:
         """Error function for Bates (1996) model calibration."""
         lambd, mu, delta = task_params  # type: float, float, float
         if lambd < 0.0 or mu < -0.6 or mu > 0.0 or delta < 0.0:
             return 5000.0
         se = []
-        for _, option in options.iterrows():
+        for _, option in df_options.iterrows():
             model_value = BatesFtiCalibrator.calculate_option_price(
-                S0,
-                option[OptionDataColumn.STRIKE], option[OptionDataColumn.TENOR], option[OptionDataColumn.RATE],
-                kappa_v, theta_v, sigma_v, rho, v0,
-                lambd, mu, delta,
-                side,
+                S0=S0,
+                K=option[OptionDataColumn.STRIKE],
+                T=option[OptionDataColumn.TENOR],
+                r=option[OptionDataColumn.RATE],
+                kappa_v=kappa_v,
+                theta_v=theta_v,
+                sigma_v=sigma_v,
+                rho=rho,
+                v0=v0,
+                lambd=lambd,
+                mu=mu,
+                delta=delta,
+                side=side,
+                ft_method=ft_method
             )
             se.append((model_value - option[side.name]) ** 2)
         MSE = sum(se) / len(se)
@@ -186,21 +244,26 @@ class BatesFtiCalibrator(FtiCalibrator):
         rho: float,
         v0: float,
         side: OptionSide,
-        jump_search_grid: JumpOnlySearchGridType
+        jump_search_grid: JumpOnlySearchGridType,
+        ft_method: FtMethod = FtMethod.LEWIS,
     ) -> JumpOnlyDynamicsParameters:
         """Calibrates jump component of Bates (1996) model to market prices."""
         print_iter = [0]
         min_MSE = [5000.0]
         opt1 = brute(
             lambda p: BatesFtiCalibrator.calculate_error_short(
-                p, df_options, S0, kappa_v, theta_v, sigma_v, rho, v0, side, print_iter=print_iter, min_MSE=min_MSE
+                p, df_options=df_options, S0=S0,
+                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+                side=side, print_iter=print_iter, min_MSE=min_MSE, ft_method=ft_method
             ),
             jump_search_grid,
             finish=None,
         )
         opt2 = fmin(
             lambda p: BatesFtiCalibrator.calculate_error_short(
-                p, df_options, S0, kappa_v, theta_v, sigma_v, rho, v0, side, print_iter=print_iter, min_MSE=min_MSE
+                p, df_options=df_options, S0=S0,
+                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+                side=side, print_iter=print_iter, min_MSE=min_MSE, ft_method=ft_method
             ),
             opt1,
             xtol=1e-7,
@@ -211,37 +274,10 @@ class BatesFtiCalibrator(FtiCalibrator):
         return JumpOnlyDynamicsParameters.from_calibration_output(opt_arr=opt2, S0=S0)
 
     @staticmethod
-    def calculate_option_price_batch(
-            df_options: pd.DataFrame, S0: float,
-            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
-            lambd: float, mu: float, delta: float,
-            side: OptionSide
-    ) -> np.ndarray:
-        """Calculates all model values given parameter vector p0."""
-        values = []
-        for _, option in df_options.iterrows():
-            model_value = BatesFtiCalibrator.calculate_option_price(
-                S0,
-                option[OptionDataColumn.STRIKE],
-                option[OptionDataColumn.TENOR],
-                option[OptionDataColumn.RATE],
-                kappa_v,
-                theta_v,
-                sigma_v,
-                rho,
-                v0,
-                lambd,
-                mu,
-                delta,
-                side,
-            )
-            values.append(model_value)
-        return np.array(values)
-
-    @staticmethod
     def calculate_error_full(
-        p0: np.ndarray, options: pd.DataFrame, S0: float,
-        print_iter: List[int], min_MSE: List[float], side: OptionSide
+            p0: np.ndarray, options: pd.DataFrame, S0: float,
+            print_iter: List[int], min_MSE: List[float], side: OptionSide,
+            ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         """Error function for full Bates (1996) model calibration."""
         kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta = p0
@@ -274,6 +310,7 @@ class BatesFtiCalibrator(FtiCalibrator):
                 mu=mu,
                 delta=delta,
                 side=side,
+                ft_method=ft_method
             )
             se.append((model_value - option[side.name]) ** 2)
         MSE = sum(se) / len(se)
@@ -308,6 +345,7 @@ class BatesFtiCalibrator(FtiCalibrator):
             df_options: pd.DataFrame, S0: float, r: float, side: OptionSide,
             heston_search_grid: HestonSearchGridType = HestonDynamicsParameters.get_default_search_grid(),
             jumponly_search_grid: JumpOnlySearchGridType = JumpOnlyDynamicsParameters.get_default_search_grid(),
+            ft_method: FtMethod = FtMethod.LEWIS,
             h_params_path: Optional[str] = None,
             skip_plot: bool = True,
     ) -> BatesDynamicsParameters:
@@ -323,7 +361,7 @@ class BatesFtiCalibrator(FtiCalibrator):
         else:
             h_params = HestonFtiCalibrator.calibrate(
                 df_options=df_options, S0=S0, r=r, side=side,
-                search_grid=heston_search_grid
+                search_grid=heston_search_grid, ft_method=ft_method
             )
         LOGGER.info(f"Bates.Heston calib: {h_params}")
 
@@ -332,7 +370,7 @@ class BatesFtiCalibrator(FtiCalibrator):
             df_options=df_options, S0=S0,
             kappa_v=h_params.kappa_heston, theta_v=h_params.theta_heston, sigma_v=h_params.sigma_heston, rho=h_params.rho_heston, v0=h_params.v0_heston,
             jump_search_grid=jumponly_search_grid,
-            side=side
+            side=side, ft_method=ft_method
         )
         LOGGER.info(f"Bates.Jump calib: {jump_params}")
 
@@ -343,7 +381,8 @@ class BatesFtiCalibrator(FtiCalibrator):
             plot_Bates_short(
                 df_options=df_options,
                 model_values=BatesFtiCalibrator.calculate_option_price_batch(
-                    df_options, S0, *initial_bates_params.get_values(), side=side
+                    df_options, S0, *initial_bates_params.get_values(),
+                    side=side, ft_method=ft_method
                 ),
                 side=side
             )
@@ -364,7 +403,7 @@ def plot_Bates_short(df_options: pd.DataFrame, model_values: np.array, side: Opt
     """Plot market and model prices for each maturity and OptionSide."""
     df_options = df_options.copy()
     df_options[OptionDataColumn.MODEL] = model_values
-    for maturity, df_options_per_maturity in df_options.groupby(OptionDataColumn.MATURITY):
+    for maturity, df_options_per_maturity in df_options.groupby(OptionDataColumn.DAYSTOMATURITY):
         plt.figure(figsize=(8, 6))
         plt.subplot(211)
         plt.grid()
@@ -398,65 +437,6 @@ def plot_Bates_short(df_options: pd.DataFrame, model_values: np.array, side: Opt
         plt.show()
 
 
-def plot_Bates_full(df_options: pd.DataFrame, model_values: np.ndarray, side: OptionSide):
-    """Plot market and model prices for each maturity and OptionSide (full calibration)."""
-    df_options = df_options.copy()
-    df_options[OptionDataColumn.MODEL] = model_values
-    for maturity, df_options_per_maturity in df_options.groupby(OptionDataColumn.MATURITY):
-        plt.figure(figsize=(8, 6))
-        plt.subplot(211)
-        plt.grid()
-        plt.title(f"(Full-calib) {side.name} at Maturity {maturity}")
-        plt.ylabel("option values")
-        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[side.name], "b", label="market")
-        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[OptionDataColumn.MODEL], "ro", label="model")
-        plt.legend(loc=0)
-        axis1=[
-            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
-            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
-            min(df_options_per_maturity[side.name]) - 10,
-            max(df_options_per_maturity[side.name]) + 10,
-        ]
-        plt.axis(axis1)  # type: ignore
-
-        plt.subplot(212)
-        plt.grid()
-        wi = 5.0
-        diffs = df_options_per_maturity[OptionDataColumn.MODEL].values - df_options_per_maturity[side.name].values
-        plt.bar(df_options_per_maturity[OptionDataColumn.STRIKE].values - wi / 2, diffs, width=wi)
-        plt.ylabel("difference")
-        axis2 = [
-            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
-            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
-            min(diffs) * 1.1,
-            max(diffs) * 1.1,
-        ]
-        plt.axis(axis2)  # type: ignore
-        plt.tight_layout()
-        plt.show()
-
-
-def ex_pricing():
-    """Example: price a call and put option under Bates (1996) model."""
-    S0 = 100
-    K = 100
-    T = 1
-    r = 0.05
-    kappa_v = 1.5
-    theta_v = 0.02
-    sigma_v = 0.15
-    rho = 0.1
-    v0 = 0.01
-    lambd = 0.25
-    mu = -0.2
-    delta = 0.1
-    for side in [OptionSide.CALL, OptionSide.PUT]:
-        value = BatesFtiCalibrator.calculate_option_price(
-            S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta, side
-        )
-        LOGGER.info(f"B96 {side.name} option price via Lewis(2001): ${value:10.4f}")
-
-
 def get_calibrated_heston_params(h_params_path: str, S0: float, r: float) -> HestonDynamicsParameters:
     calib_result: HestonDynamicsParameters
     assert h_params_path is not None
@@ -474,17 +454,47 @@ def get_calibrated_heston_params(h_params_path: str, S0: float, r: float) -> Hes
 
     return calib_result
 
+
+def ex_pricing():
+    ft_method: FtMethod = FtMethod.LEWIS
+
+    """Example: price a call and put option under Bates (1996) model."""
+    S0 = 100
+    K = 100
+    T = 1
+    r = 0.05
+    kappa_v = 1.5
+    theta_v = 0.02
+    sigma_v = 0.15
+    rho = 0.1
+    v0 = 0.01
+    lambd = 0.25
+    mu = -0.2
+    delta = 0.1
+    for side in [OptionSide.CALL, OptionSide.PUT]:
+        value = BatesFtiCalibrator.calculate_option_price(
+            S0=S0, K=K, T=T, r=r,
+            kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+            lambd=lambd, mu=mu, delta=delta,
+            side=side, ft_method=ft_method
+        )
+        LOGGER.info(f"B96 {side.name} option price via Lewis(2001): ${value:10.4f}")
+
+
 def ex_calibration(
         data_path: str,
         side: OptionSide,
         params_path = None,
         skip_plot: bool = False
 ):
+    ft_method: FtMethod = FtMethod.LEWIS
+
     """Example: calibrate Bates (1996) model to market data and plot results for given OptionSide.
     Runs both short (jump-only) and full calibration.
     """
     S0: float = 3225.93  # EURO STOXX 50 level 30.09.2014
     r: float = 0.02
+    ft_method: FtMethod = FtMethod.LEWIS  # or FtMethod.CARRMADAN
 
     df_options: pd.DataFrame = load_option_data(
         path_str=data_path, S0=S0,
@@ -493,21 +503,22 @@ def ex_calibration(
 
     params_bates: BatesDynamicsParameters  = BatesFtiCalibrator.calibrate(
         df_options=df_options, S0=S0, r=r, side=side,
-        heston_search_grid=BatesDynamicsParameters.get_heston_default_search_grid(),
-        jumponly_search_grid=BatesDynamicsParameters.get_jumponly_default_search_grid(),
-        h_params_path=params_path
+        heston_search_grid=BatesDynamicsParameters.get_default_heston_search_grid(),
+        jumponly_search_grid=BatesDynamicsParameters.get_default_jumponly_search_grid(),
+        h_params_path=params_path,
+        ft_method=ft_method
     )
     LOGGER.info(f"Bates calib: {params_bates}")
 
     if not skip_plot:
         kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta = params_bates.get_values()
-        plot_Bates_full(
+        plot_calibration_result(
             df_options=df_options,
             model_values=BatesFtiCalibrator.calculate_option_price_batch(
                 df_options=df_options, S0=S0,
                 kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
                 lambd=lambd, mu=mu, delta=delta,
-                side=side
+                side=side, ft_method=ft_method
             ),
             side=side
         )

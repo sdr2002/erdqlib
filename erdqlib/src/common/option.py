@@ -19,7 +19,7 @@ class OptionType(StrEnum):
 
 @dataclass
 class OptionInfo:
-    type: OptionType
+    o_type: OptionType
     K: float  # strike price
     side: OptionSide
 

@@ -40,7 +40,7 @@ def test_vasicek_eur_option_price(vasicek_params):
         underlying_path=s_paths,
         d=vasicek_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=0.02, side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=0.02, side=OptionSide.CALL
         ),
         t=0.
     )
@@ -49,7 +49,7 @@ def test_vasicek_eur_option_price(vasicek_params):
         underlying_path=s_paths,
         d=vasicek_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=0.04, side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=0.04, side=OptionSide.PUT
         ),
         t=0.
     )
