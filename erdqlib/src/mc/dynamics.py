@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Dict, Tuple
 from typing import Self, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import scipy.stats as ss
 
 
@@ -72,6 +73,10 @@ class DynamicsParameters:
         This method should be overridden in derived classes.
         """
         raise NotImplementedError("This method should be overridden in derived classes.")
+
+    def __str__(self, new_line: bool = True) -> str:
+        table_str: str = pd.DataFrame(asdict(self), index=[0]).to_markdown(index=False)
+        return "\n" + table_str if new_line else table_str
 
 
 @dataclass
