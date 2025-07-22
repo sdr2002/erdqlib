@@ -8,7 +8,7 @@ from scipy.optimize import brute, fmin
 
 from erdqlib.src.common.option import OptionDataColumn, OptionType
 from erdqlib.src.common.option import OptionSide
-from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod
+from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod, plot_calibration_result
 from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.src.mc.heston import HestonDynamicsParameters, HestonSearchGridType
 from erdqlib.tool.logger_util import create_logger
@@ -240,7 +240,7 @@ class HestonFtiCalibrator(FtiCalibrator):
     def calculate_option_price_batch(
             df_options: pd.DataFrame, S0: float,
             kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
-            side: OptionSide
+            side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
     ) -> np.array:
         """Batch calculation of option prices for a DataFrame of options."""
         values = []
@@ -256,6 +256,7 @@ class HestonFtiCalibrator(FtiCalibrator):
                 rho=rho,
                 v0=v0,
                 side=side,
+                ft_method=ft_method
             )
             values.append(model_value)
         return np.array(values)
