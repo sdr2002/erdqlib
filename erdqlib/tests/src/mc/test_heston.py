@@ -57,8 +57,8 @@ def test_heston_eur_option_price(heston_params):
         t=0.
     )
 
-    expected_call_price: float = 9.250468788265543
+    expected_call_price: float = 12.790993816567376
     np.testing.assert_approx_equal(call_price, expected_call_price, significant=4)
 
-    expected_put_price: float = 6.905996174060089
+    expected_put_price: float = 5.38600153909068
     np.testing.assert_approx_equal(put_price, expected_put_price, significant=4)

@@ -101,49 +101,48 @@ class HestonParameters(ModelParameters, HestonDynamicsParameters):
 class Heston(MonteCarlo):
 
     @staticmethod
-    def sample_variance_paths(h_params: HestonParameters, cho_matrix: np.ndarray, rand: np.ndarray) -> np.ndarray:
+    def sample_variance_paths(h_params: HestonParameters, cho_matrix: np.ndarray, u2: np.ndarray) -> np.ndarray:
         """Stochastic variance process for Heston model
         dv_t = kappa * (theta - v_t) dt + sigma * sqrt{v_t} dW^{(2)}_t
         v_t = v_0 * exp(-kappa * t) + theta * (1 - exp(-kappa * t)) + sigma * exp(-kappa * t) * integral_0^t exp(kappa * s) * sqrt(v_s) dW2_s
         """
         v_arr2d: np.ndarray = h_params.create_zeros_state_matrix()
+        v_arr2d[0] = h_params.v0_heston
 
         dt: float = h_params.get_dt()
         sdt: float = np.sqrt(dt)  # Sqrt of dt
 
         row: int = 1
-        for t in range(0, h_params.M + 1):
-            if t == 0:
-                v_arr2d[0] = h_params.v0_heston
-                continue
-            ran = np.dot(cho_matrix, rand[:, t])[row]
-            next_v = v_arr2d[t - 1] + h_params.kappa_heston * (h_params.theta_heston - v_arr2d[t - 1]) * dt + np.sqrt(
-                v_arr2d[t - 1]) * h_params.sigma_heston * ran * sdt
+        for t in range(1, h_params.M + 1):
+            z2: np.ndarray = np.dot(cho_matrix, u2[:, t])[row]
+            # Euler-Maruyama method otherwise one should sample from noncentral_chi-squared distribution for exact solution
+            # See CIR implementation for the exact solution
+            drift: np.ndarray = (h_params.theta_heston - v_arr2d[t - 1]) * dt
+            sqrtlevel_diffusion: np.ndarray = np.sqrt(v_arr2d[t - 1]) * h_params.sigma_heston * sdt * z2
+            next_v = v_arr2d[t - 1] + h_params.kappa_heston * drift + sqrtlevel_diffusion
             v_arr2d[t] = np.maximum(0, next_v)  # manual non-negative bound
         return v_arr2d
 
     @staticmethod
     def sample_paths(
-            var_arr: np.ndarray, h_params: HestonParameters, cho_matrix: np.ndarray, rand: np.ndarray
+            var_arr: np.ndarray, h_params: HestonParameters, cho_matrix: np.ndarray, u1: np.ndarray
     ) -> np.ndarray:
         """Heston model process paths sampler
         dX_t = r * X_t * dt + sqrt{v_t} * X_t * dW1_t where d<W1, dW2> = rho * dt
-        X_t = X_0 * exp((r - 0.5 * v_t) * t + sqrt{v_t} * Z)
+        X_t = X_0 * exp[(r - 0.5 * v_t) * t + sqrt(v_t) * W_t]
         """
         x_arr2d: np.ndarray = h_params.create_zeros_state_matrix()
 
         dt: float = h_params.get_dt()
         sdt: float = np.sqrt(dt)
 
-        row: int = 1
-        for t in range(0, h_params.M + 1, 1):
-            if t == 0:
-                x_arr2d[0] = h_params.S0
-                continue
-            ran = np.dot(cho_matrix, rand[:, t])[row]
-            x_arr2d[t] = x_arr2d[t - 1] * np.exp(
-                (h_params.r - 0.5 * var_arr[t - 1]) * dt + np.sqrt(var_arr[t - 1]) * ran * sdt)
-
+        row: int = 0
+        x_arr2d[0] = h_params.S0
+        for t in range(1, h_params.M + 1, 1):
+            drift: np.ndarray = (h_params.r - 0.5 * var_arr[t - 1]) * dt
+            z1: np.ndarray = np.dot(cho_matrix, u1[:, t])[row]
+            stochastic_diffusion: np.ndarray = np.sqrt(var_arr[t - 1]) * sdt * z1
+            x_arr2d[t] = x_arr2d[t - 1] * np.exp(drift + stochastic_diffusion)
         return x_arr2d
 
     @staticmethod
@@ -159,11 +158,14 @@ class Heston(MonteCarlo):
         LOGGER.info(f"Cholesky matrix:\n{cho_matrix}")
 
         # Volatility process paths
-        v_arr2d: np.ndarray = Heston.sample_variance_paths(model_params, cho_matrix=cho_matrix, rand=rand_tensor)
+        v_arr2d: np.ndarray = Heston.sample_variance_paths(
+            h_params=model_params, cho_matrix=cho_matrix, u2=rand_tensor
+        )
 
         # Underlying price process paths
-        x_arr2d: np.ndarray = Heston.sample_paths(var_arr=v_arr2d, h_params=model_params, cho_matrix=cho_matrix,
-                                                  rand=rand_tensor)
+        x_arr2d: np.ndarray = Heston.sample_paths(
+            var_arr=v_arr2d, h_params=model_params, cho_matrix=cho_matrix, u1=rand_tensor
+        )
         if underlying_only:
             return x_arr2d
         return v_arr2d, x_arr2d
@@ -236,7 +238,7 @@ class Heston(MonteCarlo):
         ax3 = axs[1, 1]
         var_last = var_paths[-1, :]
         ax3.hist(var_last, density=True, bins=500)
-        ax3.axvline(x=model_params.sigma_heston ** 2, color='black', linestyle='--', label='sigma^2')
+        ax3.axvline(x=model_params.v0, color='black', linestyle='--', label='v0')
         x_var = np.linspace(var_last.min(), var_last.max(), 500)
         ax3.plot(
             x_var, ss.lognorm.pdf(x_var, *ss.lognorm.fit(var_last, floc=0)),
