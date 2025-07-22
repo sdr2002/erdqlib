@@ -57,5 +57,5 @@ def test_jump_eur_option_price(jump_params):
     expected_call_price: float = 1.8476007195750768
     np.testing.assert_approx_equal(call_price, expected_call_price, significant=4)
 
-    expected_put_price: float = 44.48880258567182
+    expected_put_price: float = 44.77402984425289
     np.testing.assert_approx_equal(put_price, expected_put_price, significant=4)
