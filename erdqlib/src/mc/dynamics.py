@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict
 from typing import Dict, Tuple
@@ -77,6 +78,9 @@ class DynamicsParameters:
     def __str__(self, new_line: bool = True) -> str:
         table_str: str = pd.DataFrame(asdict(self), index=[0]).to_markdown(index=False)
         return "\n" + table_str if new_line else table_str
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), indent=4, ensure_ascii=True)
 
 
 @dataclass

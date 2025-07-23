@@ -238,7 +238,7 @@ class Heston(MonteCarlo):
         ax3 = axs[1, 1]
         var_last = var_paths[-1, :]
         ax3.hist(var_last, density=True, bins=500)
-        ax3.axvline(x=model_params.v0, color='black', linestyle='--', label='v0')
+        ax3.axvline(x=model_params.v0_heston, color='black', linestyle='--', label='v0')
         x_var = np.linspace(var_last.min(), var_last.max(), 500)
         ax3.plot(
             x_var, ss.lognorm.pdf(x_var, *ss.lognorm.fit(var_last, floc=0)),

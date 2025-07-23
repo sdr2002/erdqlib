@@ -149,7 +149,7 @@ def price_montecarlo(
             if o.side == OptionSide.CALL:
                 payoff = np.maximum(0, np.mean(underlying_path,axis=0) - o.K)
             else:
-                payoff = np.maximum(0, np.mean(underlying_path,axis=0) + o.K)
+                payoff = np.maximum(0, - np.mean(underlying_path,axis=0) + o.K)
         case _:
             raise TypeError(f"Unknown option type: {o.type}")
 
