@@ -1,4 +1,9 @@
+from dataclasses import dataclass
+from typing import Optional, Tuple, SupportsFloat
+
 import numpy as np
+from matplotlib import pyplot as plt
+from scipy.interpolate import splev, splrep
 
 from erdqlib.tool.logger_util import create_logger
 
@@ -28,6 +33,94 @@ def instantaneous_rate(zcb_price: float, t_year: float) -> float:
     if t_year <= 0:
         raise ValueError("Time in years must be positive")
     return -np.log(zcb_price) / t_year
+
+
+@dataclass
+class ForwardsLadder:
+    maturities: np.ndarray
+    rates: np.ndarray
+
+    def __init__(self, maturities: np.ndarray, rates: np.ndarray):
+        if len(maturities) != len(rates):
+            raise ValueError("Maturities and rates must have the same length")
+        self.maturities = maturities
+        self.rates = rates
+
+
+class SplineCurve:
+    """Curve class to hold maturities and rates"""
+    def __init__(self):
+        self.maturities_data: Optional[np.ndarray] = None
+        self.ytms_data: Optional[np.ndarray] = None
+        self.bspline: Optional[Tuple[np.ndarray, np.ndarray, int]] = None
+
+        self.t_i: Optional[float] = None
+        self.t_f: Optional[float] = None
+
+        self.forwards_ladder: Optional[ForwardsLadder] = None
+        self._interpolated_rates: Optional[np.ndarray] = None
+        self._first_derivatives: Optional[np.ndarray] = None
+
+    def update_curve(
+            self,
+            maturities: np.ndarray, yields_to_maturity: np.ndarray,
+            n_knots: int = 3
+    ):
+        """Construct a curve from maturities and rates"""
+        self.bspline = splrep(maturities, yields_to_maturity, k=n_knots)
+
+        self.maturities_data = maturities
+        self.ytms_data = yields_to_maturity
+
+    def calculate_forward_rates(self, t_f: float, t_i: float = 0.0) -> ForwardsLadder:
+        """Forward rates via Cubic spline"""
+        if not self.bspline:
+            raise ValueError("Curve is not initialized. Call update_curve() first.")
+
+        maturities_ladder: np.ndarray = np.linspace(t_i, t_f, int((t_f - t_i)*24.))
+
+        # Forward rate given a curve (of interpolated rates and their first derivatives)
+        self._interpolated_rates = splev(maturities_ladder, self.bspline, der=0)  # Interpolated rates
+        self._first_derivatives = splev(maturities_ladder, self.bspline, der=1)  # First derivative of spline
+        zcb_forward_rates: np.ndarray = self._interpolated_rates + self._first_derivatives * maturities_ladder
+
+        return ForwardsLadder(maturities=maturities_ladder, rates=zcb_forward_rates)
+
+    def get_maturities_ladder(self) -> np.ndarray:
+        if not self.forwards_ladder:
+            raise ValueError("Maturities ladder is not calculated. Call get_forward_rates() first.")
+        return self.forwards_ladder.maturities
+
+    def get_forward_rates(self):
+        """get_zcb_forward_rates"""
+        if not self.forwards_ladder:
+            raise ValueError("Forward rates are not calculated. Call get_forward_rates() first.")
+        return self.forwards_ladder.rates
+
+    def get_overnight_rate(self) -> float:
+        if not self.bspline:
+            raise ValueError("Curve is not initialized. Call update_curve() first.")
+        out = splev([0.], self.bspline, der=0)[0]  # type: ignore
+        if not isinstance(out, SupportsFloat):
+            raise TypeError("Overnight rate is not a float. Check the spline data.")
+        return float(out)
+
+    def plot_curve(self):
+        if not self.forwards_ladder:
+            raise ValueError("Forward rates are not calculated. Call get_forward_rates() first.")
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.plot(self.maturities_data, self.ytms_data, "r.", markersize=15, label="Market quotes")
+        ax.plot(self.get_maturities_ladder(), self._interpolated_rates, "--", markersize=10, label="Spot rate")
+        ax.plot(self.get_maturities_ladder(), self._first_derivatives, "g--", markersize=10, label="Spot rate time derivative")
+        ax.set_xlabel("Time Horizon")
+        ax.set_ylabel("Zero forward rate")
+        ax2 = ax.twinx()
+        ax2.plot(self.get_maturities_ladder(), self.get_forward_rates(), "b--", markersize=10, label="Forward rate")
+        fig.suptitle("Term Structure Euribor")
+        ax.legend(loc="upper left")
+        ax2.legend(loc="upper right")
+        plt.show()
 
 
 if __name__ == "__main__":
