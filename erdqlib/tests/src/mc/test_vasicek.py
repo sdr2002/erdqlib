@@ -18,7 +18,7 @@ def vasicek_params():
         I=10,
         random_seed=0,
 
-        S0=0.03,
+        x0=0.03,
         kappa_vasicek=0.20,
         theta_vasicek=0.01,
         sigma_vasicek=0.0012,

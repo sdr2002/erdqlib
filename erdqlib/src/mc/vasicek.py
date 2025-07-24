@@ -36,7 +36,7 @@ class Vasicek(MonteCarlo):
         x_arr2d: np.ndarray = v_params.create_zeros_state_matrix()
         for t in range(0, v_params.M + 1):
             if t == 0:
-                x_arr2d[0] = v_params.S0
+                x_arr2d[0] = v_params.x0
                 continue
 
             x_arr2d[t] = x_arr2d[t - 1] * np.exp(-v_params.kappa_vasicek * dt) + v_params.theta_vasicek * (1 - np.exp(-v_params.kappa_vasicek * dt)) + \
@@ -61,7 +61,7 @@ def example_vasicek():
         I=10_000,  # Number of steps
         random_seed=0,
 
-        S0=0.023,
+        x0=0.023,
         kappa_vasicek=0.20,
         theta_vasicek=0.01,
         sigma_vasicek=0.0012,

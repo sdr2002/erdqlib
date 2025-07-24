@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -7,15 +7,16 @@ from scipy.interpolate import splev, splrep
 from scipy.optimize import fmin
 
 from erdqlib.src.common.option import OptionDataColumn
-from erdqlib.src.common.rate import capitalization_factor, annualized_continuous_rate
+from erdqlib.src.common.rate import capitalization_factor, annualized_continuous_rate, SplineCurve, ForwardsLadder
 from erdqlib.src.mc.cir import CirDynamicsParameters
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
 
 LOGGER = create_logger(__name__)
-
+MIN_MSE = 1.0
 
 class CirCalibrator:
+    """Short rate model calibration for CIR (1985) model"""
     @staticmethod
     def calculate_forward_rate(alpha: np.ndarray, maturities_ladder: np.ndarray, r0: float) -> np.array:
         """
@@ -39,9 +40,13 @@ class CirCalibrator:
         return s1 + s2
 
     @staticmethod
-    def calculate_error(alpha: np.ndarray, curve_forward_rates: np.ndarray, maturities_ladder: np.ndarray, r0: float):
+    def calculate_error(
+            cir_params: np.ndarray,
+            curve_forward_rates: np.ndarray, maturities_ladder: np.ndarray, r0: float,
+            print_iter: Optional[List[float]] = None, min_MSE: Optional[List[float]] = None
+    ):
         """Error function to calibrate CIR (1985) model"""
-        kappa_r, theta_r, sigma_r = alpha
+        kappa_r, theta_r, sigma_r = cir_params
 
         # Few remarks to avoid problems for certain values of parameters:
         if 2 * kappa_r * theta_r < sigma_r ** 2:
@@ -49,27 +54,36 @@ class CirCalibrator:
         if kappa_r < 0 or theta_r < 0 or sigma_r < 0.001:
             return 100
 
-        forward_rates: np.ndarray = CirCalibrator.calculate_forward_rate(alpha, maturities_ladder=maturities_ladder, r0=r0)
-        MSE: float = np.sum((curve_forward_rates - forward_rates) ** 2) / len(curve_forward_rates)
+        forward_rates: np.ndarray = CirCalibrator.calculate_forward_rate(cir_params, maturities_ladder=maturities_ladder, r0=r0)
+        mse: float = np.sum((curve_forward_rates - forward_rates) ** 2) / len(curve_forward_rates)
+        if min_MSE is not None:
+            min_MSE[0] = min(min_MSE[0], mse)
+        if print_iter is not None:
+            if print_iter[0] % 25 == 0:
+                LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in cir_params)}] | {mse:7.3g} | {min_MSE[0]:7.3g}")
+            print_iter[0] += 1
 
-        return MSE
+        return mse
 
     @staticmethod
     def calibrate(
         r0: float, curve_forward_rates: np.ndarray, maturities_ladder: np.ndarray
     ) -> CirDynamicsParameters:
         """CIR (1985) Calibration via minimizing Forward rate differences"""
-        # np array of kappa_r, theta_r, sigma_r
-        opt: np.ndarray = fmin(
-            lambda cir_parms, f=curve_forward_rates, r=r0: CirCalibrator.calculate_error(
-                alpha=cir_parms, curve_forward_rates=f, maturities_ladder=maturities_ladder, r0=r
+        print_iter = [0]
+        min_MSE = [MIN_MSE]
+
+        LOGGER.info("Fmin begins")
+        c_opt: np.ndarray = fmin(
+            lambda p, f=curve_forward_rates, r=r0: CirCalibrator.calculate_error(
+                cir_params=p, curve_forward_rates=f, maturities_ladder=maturities_ladder, r0=r,
+                print_iter=print_iter, min_MSE=min_MSE
             ),
             [1.0, 0.02, 0.1],  # Initial kappa_r, theta_r, sigma_r hypothesis
             xtol=0.00001, ftol=0.00001, maxiter=300, maxfun=500,
             full_output= False, retall=False, disp=False
         )
-
-        return CirDynamicsParameters.from_opt_result(opt)  # type: ignore
+        return CirDynamicsParameters.from_calibration_output(opt_arr=c_opt, x0=r0)  # type: ignore
 
 
 def plot_interpolated_curve(
@@ -141,52 +155,41 @@ def ex_calibration(
     """
     # Euribor Market data
     euribor_df: pd.DataFrame = pd.read_csv(
-        get_path_from_package("erdqlib@src/ft/data/euribor_20140930.csv")
+        # get_path_from_package("erdqlib@src/ft/data/euribor_20140930.csv")
+        get_path_from_package("erdqlib@examples/data/sm_gwp1_euribor.csv")
     )
+    LOGGER.info(f"Rates:\n{euribor_df.to_markdown(index=False)}")
 
     maturities: np.ndarray = euribor_df[OptionDataColumn.MATURITY].values  # Maturities in years with 30/360 convention
     rates: np.ndarray = euribor_df[OptionDataColumn.RATE].values  # Euribor rates in rate unit
 
     # Capitalization factors and Zero-rates
-    r0: float = float(rates[0])
     zcb_rates: np.ndarray = annualized_continuous_rate(
         cap_factor=capitalization_factor(r_year=rates, t_year=maturities),
         t_year=maturities
     ) # Euribor is IR product which is a single cash flow, hence is a zero-coupon bond where YTM = spot-rate
 
     # Interpolation and Forward rates via Cubic spline
-    bspline: Tuple[np.ndarray, np.ndarray, int] = splrep(maturities, zcb_rates, k=3)  # type: ignore
-    maturities_ladder: np.ndarray = np.linspace(0.0, 1.0, 24)
+    scurve: SplineCurve = SplineCurve()
+    scurve.update_curve(maturities=maturities, yields_to_maturity=zcb_rates)
+    forward_rates: ForwardsLadder = scurve.calculate_forward_rates(t_f=1.0)
 
-    # Forward rate given a curve (of interpolated rates and their first derivatives)
-    interpolated_rates: np.ndarray = splev(maturities_ladder, bspline, der=0)  # Interpolated rates
-    first_derivatives: np.ndarray = splev(maturities_ladder, bspline, der=1)  # First derivative of spline
-    zcb_forward_rates: np.ndarray = interpolated_rates + first_derivatives * maturities_ladder
-
-    # Calibration of CIR parameters
     params_cir: CirDynamicsParameters = CirCalibrator.calibrate(
-        r0=r0,
-        curve_forward_rates=zcb_forward_rates,
-        maturities_ladder=maturities_ladder
+        r0=scurve.get_overnight_rate(),
+        curve_forward_rates=forward_rates.rates,
+        maturities_ladder=forward_rates.maturities
     )  # [0.06190266 0.23359687 0.14892987]
-    LOGGER.info(params_cir)
+    LOGGER.info(f"CIR params:{params_cir}")
 
     if not skip_plot:
-        plot_interpolated_curve(
-            maturities=maturities,
-            zcb_rates=zcb_rates,
-            maturities_ladder=maturities_ladder,
-            interpolated_rates=interpolated_rates,
-            first_derivatives=first_derivatives,
-            zcb_forward_rates=zcb_forward_rates
-        )
+        scurve.plot_curve()
         plot_calibrated_cir(
             model_params=params_cir.get_value_arr(),
-            maturities_ladder=maturities_ladder,
-            market_forward_rates=zcb_forward_rates,
-            r0=r0
+            maturities_ladder=forward_rates.maturities,
+            market_forward_rates=forward_rates.rates,
+            r0=scurve.get_overnight_rate()
         )
 
 
 if __name__ == "__main__":
-    ex_calibration(skip_plot=False)  # Example of CIR calibration
+    ex_calibration(skip_plot=True)  # Example of CIR calibration

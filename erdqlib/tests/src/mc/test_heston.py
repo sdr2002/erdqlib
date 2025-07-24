@@ -18,7 +18,7 @@ def heston_params():
         sigma_heston=0.3,
         theta_heston=0.04,
         rho_heston=-0.9,
-        S0=100,
+        x0=100,
         r=0.05,
         T=1,
         M=4,

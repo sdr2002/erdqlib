@@ -18,7 +18,7 @@ def jump_params():
         delta_merton=0.25,  # Delta
         sigma_merton=0.2,
 
-        S0=100,  # Current underlying asset price
+        x0=100.0,  # Current underlying asset price
         r=0.05,  # Risk-free rate
 
         T=1,  # Number of years

@@ -14,7 +14,7 @@ from erdqlib.tool.path import get_path_from_package
 def gbm_params():
     return GbmParameters(
         sigma=0.2,
-        S0=100,
+        x0=100,
         r=0.0001,
         T=1,
         M=4,

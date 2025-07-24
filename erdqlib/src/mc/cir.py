@@ -19,12 +19,12 @@ class CirDynamicsParameters(DynamicsParameters):
         return np.array([self.kappa_cir, self.theta_cir, self.sigma_cir])
 
     @staticmethod
-    def from_opt_result(opt: np.ndarray) -> "CirDynamicsParameters":
+    def from_calibration_output(opt_arr: np.ndarray, x0: float) -> "CirDynamicsParameters":
         return CirDynamicsParameters(
-            S0=None, r=None,
-            kappa_cir=float(opt[0]),
-            theta_cir=float(opt[1]),
-            sigma_cir=float(opt[2])
+            x0=x0, r=None,
+            kappa_cir=float(opt_arr[0]),
+            theta_cir=float(opt_arr[1]),
+            sigma_cir=float(opt_arr[2])
         )
 
 
@@ -49,7 +49,7 @@ class Cir(MonteCarlo):
         x_arr2d: np.ndarray = c_params.create_zeros_state_matrix()
         for t in range(0, c_params.M + 1):
             if t == 0:
-                x_arr2d[0] = c_params.S0
+                x_arr2d[0] = c_params.x0
                 continue
 
             # inside your time‐stepping loop, at step t > 0:
@@ -84,7 +84,7 @@ def example_cir():
         I = 10_000,  # Number of steps
         random_seed=0,
 
-        S0 = 0.023,
+        x0= 0.023,
         kappa_cir= 0.20,
         theta_cir = 0.01,
         sigma_cir = 0.012,
@@ -92,7 +92,14 @@ def example_cir():
     )
 
     rates = Cir.calculate_paths(v_params)
-    Cir.plot_paths(n=300, paths={'x': rates}, model_params=v_params, model_name=Cir.__name__, logy=False)
+    Cir.plot_paths(
+        n=300,
+        paths={'x': rates},
+        model_params=v_params,
+        model_name=Cir.__name__,
+        logy=False,
+        ylabel="Rate"
+    )
 
 
 if __name__ == "__main__":

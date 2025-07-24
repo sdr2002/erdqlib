@@ -1,15 +1,28 @@
-import numpy as np
 import pandas as pd
+import pytest
 
+from erdqlib.src.common.option import OptionSide
 from erdqlib.src.ft.calibrator import FtiCalibrator
 from erdqlib.src.ft.jump import JumpFtiCalibrator
-from erdqlib.src.util.data_loader import load_option_data
-from erdqlib.src.common.option import OptionSide
 from erdqlib.src.mc.jump import JumpDynamicsParameters
+from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.tool.path import get_path_from_package
 
 
-def test_jump_calibration():
+@pytest.fixture
+def jump_params():
+    return JumpDynamicsParameters(
+        lambd_merton=0.009200997845176707,
+        mu_merton=-0.2038003415438602,
+        delta_merton=0.07715498913481206,
+        sigma_merton=0.15619381366824533,
+
+        x0=3225.93,  # Current underlying asset price
+        r=0.005,  # Risk-free rate
+    )
+
+
+def test_jump_calibration(jump_params):
     """Test Jump model calibration."""
 
     # Check if JumpFtiCalibrator is a subclass of FtiCalibrator
@@ -19,8 +32,8 @@ def test_jump_calibration():
     data_path: str = get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv")
     side: OptionSide = OptionSide.CALL
 
-    S0: float = 3225.93  # EURO STOXX 50 level September 30, 2014
-    r: float = 0.005
+    S0: float = jump_params.x0  # EURO STOXX 50 level September 30, 2014
+    r: float = jump_params.r
 
     df_options: pd.DataFrame = load_option_data(
         path_str=data_path,
@@ -33,20 +46,4 @@ def test_jump_calibration():
         search_grid=JumpDynamicsParameters.get_default_search_grid()
     )
 
-    expected_jump_params: JumpDynamicsParameters = JumpDynamicsParameters(
-        S0=S0,
-        r=r,
-        sigma_merton=0.15619381,
-        lambd_merton=0.009201,
-        mu_merton=-0.20380034,
-        delta_merton=0.07715499,
-    )
-
-    # Assert the values of the calibrated parameters equal the expected values
-    for param in vars(expected_jump_params).keys():
-        np.testing.assert_approx_equal(
-            getattr(opt_params, param),
-            getattr(expected_jump_params, param),
-            significant=3,
-            err_msg=f"Parameter {param} does not match expected value."
-        )
+    assert opt_params == jump_params

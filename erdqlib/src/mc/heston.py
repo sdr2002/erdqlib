@@ -67,7 +67,7 @@ class HestonDynamicsParameters(DynamicsParameters):
         """Return the parameters that are bounded and can be used for optimization."""
         eps: float = 1e-6
         return HestonDynamicsParameters(
-            S0=self.S0, r=self.r,
+            x0=self.x0, r=self.r,
             kappa_heston=float(np.clip(self.kappa_heston, eps, 0.5 * self.sigma_heston ** 2 / self.theta_heston)),
             # kappa must be positive
             sigma_heston=float(np.clip(self.sigma_heston, eps, 1. - eps)),  # sigma must be positive
@@ -84,7 +84,7 @@ class HestonDynamicsParameters(DynamicsParameters):
             opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None
     ) -> "HestonDynamicsParameters":
         return HestonDynamicsParameters(
-            S0=S0, r=r,
+            x0=S0, r=r,
             kappa_heston=opt_arr[0],
             theta_heston=opt_arr[1],
             sigma_heston=opt_arr[2],
@@ -137,7 +137,7 @@ class Heston(MonteCarlo):
         sdt: float = np.sqrt(dt)
 
         row: int = 0
-        x_arr2d[0] = h_params.S0
+        x_arr2d[0] = h_params.x0
         for t in range(1, h_params.M + 1, 1):
             drift: np.ndarray = (h_params.r - 0.5 * var_arr[t - 1]) * dt
             z1: np.ndarray = np.dot(cho_matrix, u1[:, t])[row]
@@ -210,7 +210,7 @@ class Heston(MonteCarlo):
 
         # Distribution of final log return
         ax2 = axs[1, 0]
-        logr_last = np.log(x_paths[-1, :] / model_params.S0)
+        logr_last = np.log(x_paths[-1, :] / model_params.x0)
         q5 = np.quantile(logr_last, 0.05)
         ax2.hist(
             logr_last, density=True, bins=500,
@@ -258,7 +258,7 @@ def example_heston():
         theta_heston=0.04,
         rho_heston=-0.9,
 
-        S0=100,  # Current underlying asset price
+        x0=100,  # Current underlying asset price
         r=0.05,  # Risk-free rate
 
         T=1,  # Number of years

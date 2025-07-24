@@ -39,7 +39,7 @@ class MonteCarlo(ABC):
         ax0.set_ylabel("Price")
 
         # Distribution of final (log) return of underlying price
-        y_arr = x_paths[-1, :] if not logy else np.log(x_paths[-1, :] / model_params.S0)
+        y_arr = x_paths[-1, :] if not logy else np.log(x_paths[-1, :] / model_params.x0)
         x = np.linspace(y_arr.min(), y_arr.max(), 500)
 
         ax1 = axs[1]

@@ -36,12 +36,12 @@ class SamplingParameters:
 
 @dataclass
 class DynamicsParameters:
-    S0: Optional[float]  # Current underlying asset price
+    x0: Optional[float]  # Current underlying asset price
     r: Optional[float]  # Risk-free rate
 
     def get_dynamics_parameters(self) -> Self:
         return DynamicsParameters(
-            S0=self.S0, r=self.r
+            x0=self.x0, r=self.r
         )
 
     @staticmethod
@@ -76,7 +76,7 @@ class DynamicsParameters:
         raise NotImplementedError("This method should be overridden in derived classes.")
 
     def __str__(self, new_line: bool = True) -> str:
-        table_str: str = pd.DataFrame(asdict(self), index=[0]).to_markdown(index=False)
+        table_str: str = pd.DataFrame(asdict(self), index=[0]).dropna(axis=1).to_markdown(index=False)
         return "\n" + table_str if new_line else table_str
 
     def to_json(self) -> str:
@@ -105,7 +105,8 @@ class MonteCarlo(ABC):
             paths: Dict[str, np.ndarray],
             model_params: ModelParameters,
             model_name: str,
-            logy: bool = False
+            logy: bool = False,
+            ylabel: str = "Price"
     ):
         x_paths: np.ndarray = paths['x']
         fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(7, 8))
@@ -116,17 +117,18 @@ class MonteCarlo(ABC):
         ax0.grid()
         ax0.set_title(f"{model_name} Underlying Price Paths")
         ax0.set_xlabel("Timestep")
-        ax0.set_ylabel("Price")
+        ax0.set_ylabel(ylabel)
 
         # Distribution of final (log) return of underlying price
-        y_arr = x_paths[-1, :] if not logy else np.log(x_paths[-1, :] / model_params.S0)
+        y_arr = x_paths[-1, :] if not logy else np.log(x_paths[-1, :] / model_params.x0)
         x = np.linspace(y_arr.min(), y_arr.max(), 500)
 
         ax1 = axs[1]
         q5 = np.quantile(y_arr, 0.05)
+        q95 = np.quantile(y_arr, 0.95)
         ax1.hist(
             y_arr, density=True, bins=500,
-            label=f"{model_name} (q1={np.quantile(y_arr, 0.01):.3g}, q5={q5:.3g},"
+            label=f"{model_name} (q5={q5:.3g}, q95={q95:.3g},"
                   f" sk={ss.skew(y_arr):.3g}, kt={ss.kurtosis(y_arr):.3g})"
         )
         ax1.axvline(x=q5, color='black', linestyle='--')

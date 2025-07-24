@@ -49,29 +49,32 @@ class BatesFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_option_price_lewis(
-            S0: float, K: float, T: float, r: float,
-            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
-            lambd: float, mu: float, delta: float, side: OptionSide
+            x0: float, K: float, T: float, r: float,
+            kappa_heston: float, theta_heston: float, sigma_heston: float, rho_heston: float, v0_heston: float,
+            lambd_merton: float, mu_merton: float, delta_merton: float,
+            side: OptionSide
     ) -> float:
         """European option value in Bates (1996) model via Lewis (2001)."""
         int_value = quad(
             lambda u: BatesFtiCalibrator.calculate_integral_characteristic(
-                u, S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta
+                u=u, S0=x0, K=K, T=T, r=r,
+                kappa_v=kappa_heston, theta_v=theta_heston, sigma_v=sigma_heston, rho=rho_heston, v0=v0_heston,
+                lambd=lambd_merton, mu=mu_merton, delta=delta_merton
             ),
             0,
             np.inf,
             limit=250,
         )[0]
-        call_value = max(0, S0 - np.exp(-r * T) * np.sqrt(S0 * K) / np.pi * int_value)
+        call_value = max(0, x0 - np.exp(-r * T) * np.sqrt(x0 * K) / np.pi * int_value)
         if side is OptionSide.CALL:
             return call_value
         elif side is OptionSide.PUT:
-            return call_value - S0 + K * np.exp(-r * T)
+            return call_value - x0 + K * np.exp(-r * T)
         raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
     def calculate_option_price_carrmadan(
-            S0: float, K: float, T: float, r: float,
+            x0: float, K: float, T: float, r: float,
             kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
             lambd: float, mu: float, delta: float,
             side: OptionSide
@@ -79,7 +82,7 @@ class BatesFtiCalibrator(FtiCalibrator):
         """
         Call option price in Bates (1996) under FFT
         """
-        k: float = np.log(K / S0)
+        k: float = np.log(K / x0)
         g: int = 1  # Factor to increase accuracy
         N: int = g * 4096
         eps: float = (g * 150) ** -1
@@ -89,7 +92,7 @@ class BatesFtiCalibrator(FtiCalibrator):
         vo: np.ndarray = eta * (u - 1)
 
         # Modifications to ensure integrability
-        if S0 >= 0.95 * K:  # ITM Case
+        if x0 >= 0.95 * K:  # ITM Case
             alpha = 1.5
             v = vo - (alpha + 1) * 1j
             modcharFunc = np.exp(-r * T) * (
@@ -124,7 +127,7 @@ class BatesFtiCalibrator(FtiCalibrator):
         delt[0] = 1
         j = np.arange(1, N + 1, 1)
         SimpsonW = (3 + (-1) ** j - delt) / 3
-        if S0 >= 0.95 * K:
+        if x0 >= 0.95 * K:
             FFTFunc = np.exp(1j * b * vo) * modcharFunc * eta * SimpsonW
             payoff = (np.fft.fft(FFTFunc)).real
             CallValueM = np.exp(-alpha * k) / np.pi * payoff
@@ -136,11 +139,11 @@ class BatesFtiCalibrator(FtiCalibrator):
             CallValueM = payoff / (np.sinh(alpha * k) * np.pi)
 
         pos = int((k + b) / eps)
-        call_value = CallValueM[pos] * S0
+        call_value = CallValueM[pos] * x0
         if side is OptionSide.CALL:
             return call_value
         elif side is OptionSide.PUT:
-            return call_value - S0 + K * np.exp(-r * T)
+            return call_value - x0 + K * np.exp(-r * T)
         raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
@@ -150,12 +153,12 @@ class BatesFtiCalibrator(FtiCalibrator):
     ) -> float:
         if ft_method is FtMethod.LEWIS:
             return BatesFtiCalibrator.calculate_option_price_lewis(
-                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
-                lambd=lambd, mu=mu, delta=delta, side=side
+                x0=S0, K=K, T=T, r=r, kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho, v0_heston=v0,
+                lambd_merton=lambd, mu_merton=mu, delta_merton=delta, side=side
             )
         elif ft_method is FtMethod.CARRMADAN:
             return BatesFtiCalibrator.calculate_option_price_carrmadan(
-                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+                x0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
                 lambd=lambd, mu=mu, delta=delta, side=side
             )
         raise ValueError(f"Invalid FtMethod method: {ft_method}")
@@ -227,7 +230,7 @@ class BatesFtiCalibrator(FtiCalibrator):
             min_MSE[0] = min(min_MSE[0], MSE)
         if print_iter is not None:
             if print_iter[0] % 25 == 0:
-                LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in task_params)}] | {MSE:7.3f} | {min_MSE[0]:7.3f}")
+                LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in task_params)}] | {MSE:7.3g} | {min_MSE[0]:7.3g}")
             print_iter[0] += 1
         if opt1 is not None:
             penalty = np.sqrt(np.sum((task_params - opt1) ** 2)) * 1
@@ -316,7 +319,7 @@ class BatesFtiCalibrator(FtiCalibrator):
         MSE = sum(se) / len(se)
         min_MSE[0] = min(min_MSE[0], MSE)
         if print_iter[0] % 25 == 0:
-            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3f} | {min_MSE[0]:7.3f}")
+            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3g} | {min_MSE[0]:7.3g}")
         print_iter[0] += 1
         return MSE
 
@@ -443,7 +446,7 @@ def get_calibrated_heston_params(h_params_path: str, S0: float, r: float) -> Hes
     #Load pre-calibrated Heston model parameters
     heston_calibrated_params_df: pd.DataFrame = pd.read_csv(h_params_path)
     calib_result = HestonDynamicsParameters(
-        S0=S0, r=r,
+        x0=S0, r=r,
         kappa_heston=heston_calibrated_params_df['kappa_v'].iloc[0],
         sigma_heston=heston_calibrated_params_df['sigma_v'].iloc[0],
         theta_heston=heston_calibrated_params_df['theta_v'].iloc[0],

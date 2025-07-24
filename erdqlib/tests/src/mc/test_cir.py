@@ -18,7 +18,7 @@ def cir_params():
         I=10,
         random_seed=0,
 
-        S0=0.03,
+        x0=0.03,
         kappa_cir=0.20,
         theta_cir=0.01,
         sigma_cir=0.0012,

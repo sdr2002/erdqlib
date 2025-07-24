@@ -37,7 +37,7 @@ class JumpOnlyDynamicsParameters(DynamicsParameters):
         if len(opt_arr) != 3:
             raise ValueError(f"Expected 3 parameters, got {len(opt_arr)}")
         return JumpOnlyDynamicsParameters(
-            S0=S0,
+            x0=S0,
             r=r,
             lambd_merton=opt_arr[0],
             mu_merton=opt_arr[1],
@@ -74,7 +74,7 @@ class JumpDynamicsParameters(JumpOnlyDynamicsParameters):
         if len(opt_arr) != 4:
             raise ValueError(f"Expected 4 parameters, got {len(opt_arr)}")
         return JumpDynamicsParameters(
-            S0=S0,
+            x0=S0,
             r=r,
             lambd_merton=float(opt_arr[0]),
             mu_merton=float(opt_arr[1]),
@@ -161,7 +161,7 @@ class MertonJump(MonteCarlo):
         sdt: float = np.sqrt(dt)
 
         x_arr2d: np.ndarray = j_params.create_zeros_state_matrix()
-        x_arr2d[0] = j_params.S0
+        x_arr2d[0] = j_params.x0
         for t in range(1, j_params.M + 1):
             drift: float = (j_params.r - rj - 0.5 * j_params.sigma_merton ** 2) * dt
             weiner_diffusion: np.ndarray = j_params.sigma_merton * sdt * z1[t]
@@ -209,7 +209,7 @@ if __name__ == "__main__":
         delta_merton= 0.25,  # Delta
         sigma_merton= 0.2,
 
-        S0 = 100,  # Current underlying asset price
+        x0= 100,  # Current underlying asset price
         r = 0.05,  # Risk-free rate
 
         T = 1,  # Number of years

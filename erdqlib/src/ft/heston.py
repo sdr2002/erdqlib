@@ -264,7 +264,7 @@ class HestonFtiCalibrator(FtiCalibrator):
     @staticmethod
     def calculate_error(
             p0: np.ndarray, df_options, print_iter: List[int],
-            min_MSE_record: List[float], s0: float, side: OptionSide,
+            min_MSE: List[float], s0: float, side: OptionSide,
             ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         """Error function for parameter calibration via
@@ -277,7 +277,7 @@ class HestonFtiCalibrator(FtiCalibrator):
             DataFrame with market option quotes
         print_iter: List[int]
             List to keep track of iterations
-        min_MSE_record: List[float]
+        min_MSE: List[float]
             List to keep track of minimum mean squared error
         s0: float
             initial stock/index level
@@ -303,9 +303,9 @@ class HestonFtiCalibrator(FtiCalibrator):
             )
             se.append((model_value - option[side.name]) ** 2)
         MSE = sum(se) / len(se)
-        min_MSE_record[0] = min(min_MSE_record[0], MSE)
+        min_MSE[0] = min(min_MSE[0], MSE)
         if print_iter[0] % 25 == 0:
-            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3f} | {min_MSE_record[0]:7.3f}")
+            LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in p0)}] | {MSE:7.3g} | {min_MSE[0]:7.3g}")
         print_iter[0] += 1
         return MSE
 
@@ -326,7 +326,7 @@ class HestonFtiCalibrator(FtiCalibrator):
         p0 = brute(
             lambda params, data=df_options, s0=S0, option_side=side: HestonFtiCalibrator.calculate_error(
                 params, df_options=data,
-                print_iter=print_iter, min_MSE_record=min_MSE, s0=s0,
+                print_iter=print_iter, min_MSE=min_MSE, s0=s0,
                 side=option_side, ft_method=ft_method
             ),
             search_grid,
@@ -338,7 +338,7 @@ class HestonFtiCalibrator(FtiCalibrator):
         LOGGER.info("Fmin begins")
         p_opt: np.array = fmin(
             lambda params, data=df_options, s0=S0, option_side=side: HestonFtiCalibrator.calculate_error(
-                params, df_options=data, print_iter=print_iter, min_MSE_record=min_MSE, s0=s0,
+                params, df_options=data, print_iter=print_iter, min_MSE=min_MSE, s0=s0,
                 side=option_side, ft_method=ft_method
             ),
             p0, xtol=1e-6, ftol=1e-6, maxiter=750, maxfun=900,

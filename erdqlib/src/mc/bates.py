@@ -71,7 +71,7 @@ class BatesDynamicsParameters(HestonDynamicsParameters, JumpOnlyDynamicsParamete
             opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None
     ) -> "BatesDynamicsParameters":
         return BatesDynamicsParameters(
-            S0=S0,
+            x0=S0,
             r=r,
             kappa_heston=opt_arr[0],
             theta_heston=opt_arr[1],
@@ -91,7 +91,7 @@ class BatesDynamicsParameters(HestonDynamicsParameters, JumpOnlyDynamicsParamete
         Create BatesDynamicsParameters from Heston and JumpOnly parameters.
         """
         return BatesDynamicsParameters(
-            S0=h_params.S0,
+            x0=h_params.x0,
             r=h_params.r,
             kappa_heston=h_params.kappa_heston,
             theta_heston=h_params.theta_heston,
@@ -106,12 +106,12 @@ class BatesDynamicsParameters(HestonDynamicsParameters, JumpOnlyDynamicsParamete
     def get_bounded_parameters(self) -> "BatesDynamicsParameters":
         return BatesDynamicsParameters.from_dynamic_parameters(
             h_params=HestonDynamicsParameters(
-                S0=self.S0, r=self.r,
+                x0=self.x0, r=self.r,
                 kappa_heston=self.kappa_heston, theta_heston=self.theta_heston,
                 sigma_heston=self.sigma_heston, rho_heston=self.rho_heston, v0_heston=self.v0_heston
             ).get_bounded_parameters(),
             j_params=JumpOnlyDynamicsParameters(
-                S0=self.S0, r=self.r,
+                x0=self.x0, r=self.r,
                 lambd_merton=self.lambd_merton, mu_merton=self.mu_merton, delta_merton=self.delta_merton
             )
         )
@@ -123,7 +123,7 @@ class BatesParameters(HestonParameters, JumpOnlyParameters):
     def to_heston_parameters(self) -> HestonParameters:
         """Convert BatesParameters to HestonParameters."""
         return HestonParameters(
-            S0=self.S0, r=self.r,
+            x0=self.x0, r=self.r,
             kappa_heston=self.kappa_heston, theta_heston=self.theta_heston,
             sigma_heston=self.sigma_heston, rho_heston=self.rho_heston, v0_heston=self.v0_heston,
             T=self.T, M=self.M, I=self.I, random_seed=self.random_seed
@@ -153,7 +153,7 @@ class Bates(Heston):
         sdt: float = np.sqrt(dt)
 
         x_arr2d: np.ndarray = b_params.create_zeros_state_matrix()
-        x_arr2d[0] = b_params.S0
+        x_arr2d[0] = b_params.x0
         row: int = 0
         for t in range(1, b_params.M + 1, 1):
             drift: np.ndarray = (b_params.r - rj - 0.5 * var_arr[t - 1]) * dt
@@ -221,7 +221,7 @@ def example_bates():
         mu_merton=0.0,
         delta_merton=0.25,
 
-        S0=100,  # Current underlying asset price
+        x0=100,  # Current underlying asset price
         r=0.05,  # Risk-free rate
 
         T=1,  # Number of years

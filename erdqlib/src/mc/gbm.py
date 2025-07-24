@@ -29,7 +29,7 @@ class Gbm(MonteCarlo):
         x_arr2d: np.ndarray = g_params.create_zeros_state_matrix()
         for t in range(0, g_params.M + 1):
             if t == 0:
-                x_arr2d[0] = g_params.S0
+                x_arr2d[0] = g_params.x0
                 continue
             x_arr2d[t] = x_arr2d[t - 1] * np.exp(
                 (g_params.r - 0.5 * g_params.sigma ** 2) * dt
@@ -50,7 +50,7 @@ def example_gbm():
     g_params: GbmParameters = GbmParameters(
         sigma=0.2,
 
-        S0=100,  # Current underlying asset price
+        x0=100,  # Current underlying asset price
         r=0.05,  # Risk-free rate
 
         T=1,  # Number of years

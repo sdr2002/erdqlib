@@ -223,7 +223,8 @@ class JumpFtiCalibrator(FtiCalibrator):
         if print_iter is not None:
             if print_iter[0] % 50 == 0:
                 LOGGER.info(
-                    f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in jump_params)}] | {rmse:7.3f} | {min_RMSE[0]:7.3f}")
+                    f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in jump_params)}] | {rmse:7.3f} | {min_RMSE[0]:7.3f}"
+                )
             print_iter[0] += 1
         return rmse
 
