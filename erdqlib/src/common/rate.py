@@ -16,23 +16,27 @@ def capitalization_factor(r_year: float | np.ndarray, t_year: float | np.ndarray
     return 1. + t_year * r_year
 
 
-def annualized_continuous_rate(cap_factor: float | np.ndarray, t_year: float | np.ndarray) -> float | np.ndarray:
+def zero_rate(capitalisation_factor: float | np.ndarray, t_year: float | np.ndarray) -> float | np.ndarray:
     """Annualized continuous rate from capitalization factor and time in years"""
     if np.any(t_year <= 0):
         raise ValueError("Time in years must be positive")
-    return np.log(cap_factor) / t_year
+    return np.log(capitalisation_factor) / t_year
 
 
-def implied_yield(maturity_year: float, zcb_price_t: float, zcb_price_0: float = 1.):
-    """Implied yield from zero-coupon bond prices at time t and t=0: Y(0,T) = -log(B_0(T)/B_0(0)) / T"""
-    return -np.log(zcb_price_t / zcb_price_0) / maturity_year
+def implied_yield(t_year: float, price_0_t: float, price_t_t: float = 1.0):
+    """Implied yield from zero-coupon bond prices at time maturity t and valuation time 0
+
+     Y(0,t) = -log(B_t(t)/B_0(t)) / t
+     If B_t(t) is assumed to be 1 as it is the face value of the bond, then Y = -log(B(0;t))/t
+     """
+    return np.log(price_t_t / price_0_t) / t_year
 
 
-def instantaneous_rate(zcb_price: float, t_year: float) -> float:
+def instantaneous_rate(t_year: float, price_0_t: float) -> float:
     """Instantaneous rate from Zero-Coupon-Bond price and time in years"""
     if t_year <= 0:
         raise ValueError("Time in years must be positive")
-    return -np.log(zcb_price) / t_year
+    return implied_yield(t_year=t_year, price_0_t=price_0_t, price_t_t=1.0)
 
 
 @dataclass
@@ -63,14 +67,24 @@ class SplineCurve:
 
     def update_curve(
             self,
-            maturities: np.ndarray, yields_to_maturity: np.ndarray,
+            maturities: np.ndarray,
+            spot_rates: np.ndarray,
             n_knots: int = 3
     ):
         """Construct a curve from maturities and rates"""
-        self.bspline = splrep(maturities, yields_to_maturity, k=n_knots)
+        # Capitalization factors and Zero-rates
+        zcb_rates: np.ndarray = zero_rate(
+            capitalisation_factor=capitalization_factor(
+                r_year=spot_rates,
+                t_year=maturities
+            ),
+            t_year=maturities
+        )  # Euribor is IR product which is a single cash flow, hence is a zero-coupon bond where YTM = spot-rate
+
+        self.bspline = splrep(maturities, zcb_rates, k=n_knots)
 
         self.maturities_data = maturities
-        self.ytms_data = yields_to_maturity
+        self.ytms_data = zcb_rates
 
     def calculate_forward_rates(self, t_f: float, t_i: float = 0.0) -> ForwardsLadder:
         """Forward rates via Cubic spline"""
@@ -97,10 +111,19 @@ class SplineCurve:
             raise ValueError("Forward rates are not calculated. Call get_forward_rates() first.")
         return self.forwards_ladder.rates
 
-    def get_overnight_rate(self) -> float:
+    def get_r0(self, source: str = "overnight") -> float:
         if not self.bspline:
             raise ValueError("Curve is not initialized. Call update_curve() first.")
-        out = splev([0.], self.bspline, der=0)[0]  # type: ignore
+
+        if source == "overnight":
+            # Overnight rate estimated from the spline curve
+            out = splev([1./365.], self.bspline, der=0)[0]  # type: ignore
+        elif source == "nearest":
+            # Used in the WQU instruction, but what if the nearest tenor in data was in 1W?
+            out = self.ytms_data[0]
+        else:
+            raise ValueError(f"Invalid source: {source}. Use 'overnight' or 'nearest'.")
+
         if not isinstance(out, SupportsFloat):
             raise TypeError("Overnight rate is not a float. Check the spline data.")
         return float(out)

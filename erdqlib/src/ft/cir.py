@@ -7,7 +7,7 @@ from scipy.interpolate import splev, splrep
 from scipy.optimize import fmin
 
 from erdqlib.src.common.option import OptionDataColumn
-from erdqlib.src.common.rate import capitalization_factor, annualized_continuous_rate, SplineCurve, ForwardsLadder
+from erdqlib.src.common.rate import capitalization_factor, zero_rate, SplineCurve, ForwardsLadder
 from erdqlib.src.mc.cir import CirDynamicsParameters
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
@@ -161,21 +161,15 @@ def ex_calibration(
     LOGGER.info(f"Rates:\n{euribor_df.to_markdown(index=False)}")
 
     maturities: np.ndarray = euribor_df[OptionDataColumn.MATURITY].values  # Maturities in years with 30/360 convention
-    rates: np.ndarray = euribor_df[OptionDataColumn.RATE].values  # Euribor rates in rate unit
-
-    # Capitalization factors and Zero-rates
-    zcb_rates: np.ndarray = annualized_continuous_rate(
-        cap_factor=capitalization_factor(r_year=rates, t_year=maturities),
-        t_year=maturities
-    ) # Euribor is IR product which is a single cash flow, hence is a zero-coupon bond where YTM = spot-rate
+    euribors: np.ndarray = euribor_df[OptionDataColumn.RATE].values  # Euribor rates in rate unit
 
     # Interpolation and Forward rates via Cubic spline
     scurve: SplineCurve = SplineCurve()
-    scurve.update_curve(maturities=maturities, yields_to_maturity=zcb_rates)
+    scurve.update_curve(maturities=maturities, spot_rates=euribors)
     forward_rates: ForwardsLadder = scurve.calculate_forward_rates(t_f=1.0)
 
     params_cir: CirDynamicsParameters = CirCalibrator.calibrate(
-        r0=scurve.get_overnight_rate(),
+        r0=scurve.get_r0(),
         curve_forward_rates=forward_rates.rates,
         maturities_ladder=forward_rates.maturities
     )  # [0.06190266 0.23359687 0.14892987]
@@ -187,7 +181,7 @@ def ex_calibration(
             model_params=params_cir.get_value_arr(),
             maturities_ladder=forward_rates.maturities,
             market_forward_rates=forward_rates.rates,
-            r0=scurve.get_overnight_rate()
+            r0=scurve.get_r0()
         )
 
 
