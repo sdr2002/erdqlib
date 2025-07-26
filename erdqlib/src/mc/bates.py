@@ -68,10 +68,10 @@ class BatesDynamicsParameters(HestonDynamicsParameters, JumpOnlyDynamicsParamete
 
     @staticmethod
     def from_calibration_output(
-            opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None
+            opt_arr: np.array, s0: Optional[float] = None, r: Optional[float] = None
     ) -> "BatesDynamicsParameters":
         return BatesDynamicsParameters(
-            x0=S0,
+            x0=s0,
             r=r,
             kappa_heston=float(opt_arr[0]),
             theta_heston=float(opt_arr[1]),

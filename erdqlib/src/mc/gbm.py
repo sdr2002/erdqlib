@@ -1,9 +1,10 @@
 from dataclasses import dataclass
+from typing import Optional, Tuple
 
 import numpy as np
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
-from erdqlib.src.mc.dynamics import ModelParameters
+from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
@@ -11,12 +12,31 @@ from erdqlib.tool.logger_util import create_logger
 LOGGER = create_logger(__name__)
 
 @dataclass
-class GbmDynamicsParameters(ModelParameters):
+class GbmDynamicsParameters(DynamicsParameters):
     sigma: float
+
+    @staticmethod
+    def do_parameters_offbound(sigma: float, *_, **__) -> bool:
+        return sigma <= 0.0
+
+    @staticmethod
+    def from_calibration_output(
+        opt_arr: np.ndarray,
+        s0: Optional[float] = None, r: Optional[float] = None,
+        *_, **__
+    ) -> "GbmDynamicsParameters":
+        return GbmDynamicsParameters(
+            x0=s0,
+            r=r,
+            sigma=float(opt_arr[0])
+        )
+
+    def get_values(self) -> Tuple[float]:
+        return (self.sigma,)
 
 
 @dataclass
-class GbmParameters(GbmDynamicsParameters):
+class GbmParameters(ModelParameters, GbmDynamicsParameters):
     pass
 
 

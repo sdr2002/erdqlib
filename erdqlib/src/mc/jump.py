@@ -32,12 +32,16 @@ class JumpOnlyDynamicsParameters(DynamicsParameters):
     delta_merton: float
 
     @staticmethod
-    def from_calibration_output(opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None) -> "JumpOnlyDynamicsParameters":
+    def from_calibration_output(
+            opt_arr: np.array,
+            s0: Optional[float] = None, r: Optional[float] = None,
+            *_, **__
+    ) -> "JumpOnlyDynamicsParameters":
         """Create JumpOnlyDynamicsParameters from an array of parameters."""
         if len(opt_arr) != 3:
             raise ValueError(f"Expected 3 parameters, got {len(opt_arr)}")
         return JumpOnlyDynamicsParameters(
-            x0=S0,
+            x0=s0,
             r=r,
             lambd_merton=opt_arr[0],
             mu_merton=opt_arr[1],
@@ -45,7 +49,7 @@ class JumpOnlyDynamicsParameters(DynamicsParameters):
         )
 
     @staticmethod
-    def do_parameters_offbound(lambd, mu, delta) -> bool:
+    def do_parameters_offbound(lambd: float, mu: float, delta: float, *_, **__) -> bool:
         return lambd < 0.0 or mu < -0.6 or mu > 0.0 or delta < 0.0
 
     def get_values(self) -> Tuple[float, float, float]:
@@ -69,12 +73,16 @@ class JumpDynamicsParameters(JumpOnlyDynamicsParameters):
         return self.lambd_merton, self.mu_merton, self.delta_merton, self.sigma_merton
 
     @staticmethod
-    def from_calibration_output(opt_arr: np.array, S0: Optional[float] = None, r: Optional[float] = None) -> "JumpDynamicsParameters":
+    def from_calibration_output(
+            opt_arr: np.array,
+            s0: Optional[float] = None, r: Optional[float] = None,
+            *_, **__
+    ) -> "JumpDynamicsParameters":
         """Create JumpDynamicsParameters from an array of parameters."""
         if len(opt_arr) != 4:
             raise ValueError(f"Expected 4 parameters, got {len(opt_arr)}")
         return JumpDynamicsParameters(
-            x0=S0,
+            x0=s0,
             r=r,
             lambd_merton=float(opt_arr[0]),
             mu_merton=float(opt_arr[1]),
@@ -93,7 +101,7 @@ class JumpDynamicsParameters(JumpOnlyDynamicsParameters):
         )
 
     @staticmethod
-    def do_parameters_offbound(sigma: float, lambd: float, mu: float, delta: float) -> bool:
+    def do_parameters_offbound(sigma: float, lambd: float, mu: float, delta: float, *_, **__) -> bool:
         return sigma < 0.0 or delta < 0.0 or lambd < 0.0
 
 

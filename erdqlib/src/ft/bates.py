@@ -193,8 +193,8 @@ class BatesFtiCalibrator(FtiCalibrator):
         return np.array(values)
 
     @staticmethod
-    def calculate_error_short(
-            task_params: np.ndarray, df_options: pd.DataFrame, S0: float,
+    def calculate_error_jump(
+            task_params: np.ndarray, df_options: pd.DataFrame, s0: float,
             kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
             side: OptionSide,
             ft_method: FtMethod = FtMethod.LEWIS,
@@ -209,7 +209,7 @@ class BatesFtiCalibrator(FtiCalibrator):
         se = []
         for _, option in df_options.iterrows():
             model_value = BatesFtiCalibrator.calculate_option_price(
-                S0=S0,
+                S0=s0,
                 K=option[OptionDataColumn.STRIKE],
                 T=option[OptionDataColumn.TENOR],
                 r=option[OptionDataColumn.RATE],
@@ -254,8 +254,8 @@ class BatesFtiCalibrator(FtiCalibrator):
         print_iter = [0]
         min_MSE = [5000.0]
         opt1 = brute(
-            lambda p: BatesFtiCalibrator.calculate_error_short(
-                p, df_options=df_options, S0=S0,
+            lambda p: BatesFtiCalibrator.calculate_error_jump(
+                p, df_options=df_options, s0=S0,
                 kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
                 side=side, print_iter=print_iter, min_MSE=min_MSE, ft_method=ft_method
             ),
@@ -263,8 +263,8 @@ class BatesFtiCalibrator(FtiCalibrator):
             finish=None,
         )
         opt2 = fmin(
-            lambda p: BatesFtiCalibrator.calculate_error_short(
-                p, df_options=df_options, S0=S0,
+            lambda p: BatesFtiCalibrator.calculate_error_jump(
+                p, df_options=df_options, s0=S0,
                 kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
                 side=side, print_iter=print_iter, min_MSE=min_MSE, ft_method=ft_method
             ),
@@ -274,11 +274,11 @@ class BatesFtiCalibrator(FtiCalibrator):
             maxiter=550,
             maxfun=750,
         )
-        return JumpOnlyDynamicsParameters.from_calibration_output(opt_arr=opt2, S0=S0)
+        return JumpOnlyDynamicsParameters.from_calibration_output(opt_arr=opt2, s0=S0)
 
     @staticmethod
     def calculate_error_full(
-            p0: np.ndarray, options: pd.DataFrame, S0: float,
+            p0: np.ndarray, options: pd.DataFrame, s0: float,
             print_iter: List[int], min_MSE: List[float], side: OptionSide,
             ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
@@ -300,7 +300,7 @@ class BatesFtiCalibrator(FtiCalibrator):
         se = []
         for _, option in options.iterrows():
             model_value = BatesFtiCalibrator.calculate_option_price(
-                S0=S0,
+                S0=s0,
                 K=option[OptionDataColumn.STRIKE],
                 T=option[OptionDataColumn.TENOR],
                 r=option[OptionDataColumn.RATE],
@@ -334,14 +334,14 @@ class BatesFtiCalibrator(FtiCalibrator):
         LOGGER.info("fmin optimization begins")
         opt: np.ndarray = fmin(
             lambda p: BatesFtiCalibrator.calculate_error_full(
-                p0=p, options=df_options, S0=S0, print_iter=print_iter, min_MSE=min_MSE, side=side
+                p0=p, options=df_options, s0=S0, print_iter=print_iter, min_MSE=min_MSE, side=side
             ),
             np.array(initial_params.get_values()),
             xtol=1e-7, ftol=1e-7, maxiter=500, maxfun=700,
             disp=False,
         )
         LOGGER.info(f"Full optimisation result: {print_iter[0]} | [{', '.join(f'{x:.2f}' for x in opt)}] | {min_MSE[0]:7.3f}")
-        return BatesDynamicsParameters.from_calibration_output(opt_arr=opt, S0=S0, r=r)
+        return BatesDynamicsParameters.from_calibration_output(opt_arr=opt, s0=S0, r=r)
 
     @staticmethod
     def calibrate(

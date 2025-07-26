@@ -8,7 +8,7 @@ from scipy.optimize import brute, fmin
 
 from erdqlib.src.common.option import OptionDataColumn
 from erdqlib.src.common.option import OptionSide
-from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod
+from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod, MIN_RMSE, MIN_MSE
 from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.src.mc.jump import (
     JumpDynamicsParameters, JumpSearchGridType, JumpOnlySearchGridType, JumpOnlyDynamicsParameters
@@ -17,8 +17,6 @@ from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
 
 LOGGER = create_logger(__name__)
-
-MIN_RMSE: float = 100.0
 
 
 class JumpFtiCalibrator(FtiCalibrator):
@@ -197,8 +195,8 @@ class JumpFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_error(
-            jump_params: np.array, df_options: pd.DataFrame, S0: float, side: OptionSide,
-            print_iter: Optional[List[float]] = None, min_RMSE: Optional[List[float]] = None,
+            jump_params: np.array, df_options: pd.DataFrame, s0: float, side: OptionSide,
+            print_iter: Optional[List[float]] = None, min_MSE: Optional[List[float]] = None,
             ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         """
@@ -211,19 +209,19 @@ class JumpFtiCalibrator(FtiCalibrator):
         se = []
         for _, option in df_options.iterrows():
             model_value: float = JumpFtiCalibrator.calculate_option_price(
-                S0=S0,
+                S0=s0,
                 K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
                 sigma=sigma, lambd=lambd, mu=mu, delta=delta,
                 side=side, ft_method=ft_method
             )
             se.append((model_value - option[side.name]) ** 2)
-        rmse: float = np.sqrt(sum(se) / len(se))
-        if min_RMSE is not None:
-            min_RMSE[0] = min(min_RMSE[0], rmse)
+        rmse: float = sum(se) / len(se)
+        if min_MSE is not None:
+            min_MSE[0] = min(min_MSE[0], rmse)
         if print_iter is not None:
             if print_iter[0] % 50 == 0:
                 LOGGER.info(
-                    f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in jump_params)}] | {rmse:7.3f} | {min_RMSE[0]:7.3f}"
+                    f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in jump_params)}] | {rmse:7.3f} | {min_MSE[0]:7.3f}"
                 )
             print_iter[0] += 1
         return rmse
@@ -239,12 +237,12 @@ class JumpFtiCalibrator(FtiCalibrator):
     ) -> JumpOnlyDynamicsParameters | JumpDynamicsParameters:
         """Calibrates Merton (1976) model to market quotes for given OptionSide."""
         print_iter = [0]
-        min_RMSE = [MIN_RMSE]
+        min_MSE = [MIN_MSE]
 
         LOGGER.info("Brute-force begins")
         p0 = brute(
             lambda p, data=df_options, s0=S0, option_side=side: JumpFtiCalibrator.calculate_error(
-                p, df_options=data, S0=s0, side=option_side, print_iter=print_iter, min_RMSE=min_RMSE, ft_method=ft_method
+                p, df_options=data, s0=s0, side=option_side, print_iter=print_iter, min_MSE=min_MSE, ft_method=ft_method
             ),
             search_grid,
             finish=None,
@@ -253,11 +251,11 @@ class JumpFtiCalibrator(FtiCalibrator):
         LOGGER.info("Fmin begins")
         p_opt: np.array = fmin(
             lambda p, data=df_options, s0=S0, option_side=side: JumpFtiCalibrator.calculate_error(
-                p, df_options=data, S0=s0, side=option_side, print_iter=print_iter, min_RMSE=min_RMSE, ft_method=ft_method
+                p, df_options=data, s0=s0, side=option_side, print_iter=print_iter, min_MSE=min_MSE, ft_method=ft_method
             ),
             p0, xtol=1e-4, ftol=1e-4, maxiter=550, maxfun=1050
         )
-        return JumpDynamicsParameters.from_calibration_output(opt_arr=p_opt, S0=S0, r=r)
+        return JumpDynamicsParameters.from_calibration_output(opt_arr=p_opt, s0=S0, r=r)
 
 
 def plot_Jump(
@@ -317,7 +315,8 @@ def ex_calibration(
     df_options: pd.DataFrame = load_option_data(
         path_str=data_path,
         S0=S0,  # EURO STOXX 50 level September 30, 2014
-        r_provider=lambda *_: r  # constant short rate
+        r_provider=lambda *_: r,  # constant short rate
+        days_to_maturity_target=17  # 17 days to maturity
     )
 
     params_jump: JumpDynamicsParameters = JumpFtiCalibrator.calibrate(
@@ -336,7 +335,3 @@ if __name__ == "__main__":
         data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
         side=OptionSide.CALL
     )
-    # ex_calibration(
-    #     data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
-    #     side=OptionSide.PUT
-    # )

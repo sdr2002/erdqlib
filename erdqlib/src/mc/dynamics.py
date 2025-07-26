@@ -60,7 +60,7 @@ class DynamicsParameters:
         raise NotImplementedError("This method should be overridden in derived classes.")
 
     @staticmethod
-    def from_calibration_output(opt_arr: np.ndarray, *_, **__) -> "DynamicsParameters":
+    def from_calibration_output(opt_arr: np.ndarray, s0:float, r:float, *_, **__) -> "DynamicsParameters":
         """
         Create an instance of the dynamics parameters from calibration output.
         This method should be overridden in derived classes.

@@ -10,6 +10,9 @@ from erdqlib.src.common.option import OptionDataColumn, OptionSide
 from erdqlib.src.mc.dynamics import DynamicsParameters
 
 
+MIN_RMSE: float = 100.0
+MIN_MSE: float = 500.0
+
 class FtMethod(StrEnum):
     LEWIS = auto()
     CARRMADAN = auto()

@@ -8,16 +8,14 @@ from scipy.optimize import brute, fmin
 
 from erdqlib.src.common.option import OptionDataColumn, OptionType
 from erdqlib.src.common.option import OptionSide
-from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod, plot_calibration_result
-from erdqlib.src.util.data_loader import load_option_data
+from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod, MIN_MSE
 from erdqlib.src.mc.heston import HestonDynamicsParameters, HestonSearchGridType
+from erdqlib.src.util.data_loader import load_option_data
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
 
 LOGGER = create_logger(__name__)
 
-
-MIN_MSE: float = 500.0
 
 class HestonFtiCalibrator(FtiCalibrator):
 
@@ -345,7 +343,7 @@ class HestonFtiCalibrator(FtiCalibrator):
             full_output=False, retall=False, disp=True
         )
 
-        return HestonDynamicsParameters.from_calibration_output(opt_arr=p_opt, S0=S0, r=r).get_bounded_parameters()
+        return HestonDynamicsParameters.from_calibration_output(opt_arr=p_opt, s0=S0, r=r).get_bounded_parameters()
 
 
 def plot_Heston(

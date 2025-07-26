@@ -19,7 +19,7 @@ class CirDynamicsParameters(DynamicsParameters):
         return np.array([self.kappa_cir, self.theta_cir, self.sigma_cir])
 
     @staticmethod
-    def from_calibration_output(opt_arr: np.ndarray, x0: float) -> "CirDynamicsParameters":
+    def from_calibration_output(opt_arr: np.ndarray, x0: float, *_, **__) -> "CirDynamicsParameters":
         return CirDynamicsParameters(
             x0=x0, r=None,
             kappa_cir=float(opt_arr[0]),

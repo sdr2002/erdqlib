@@ -1,8 +1,19 @@
-import numpy as np
-from scipy.integrate import quad
+from typing import Optional, List
 
-from erdqlib.src.common.option import OptionSide, OptionType
-from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod
+import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
+from scipy.integrate import quad
+from scipy.optimize import fmin
+
+from erdqlib.src.common.option import OptionSide, OptionType, OptionDataColumn
+from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod, MIN_MSE
+from erdqlib.src.mc.gbm import GbmDynamicsParameters
+from erdqlib.src.util.data_loader import load_option_data
+from erdqlib.tool.logger_util import create_logger
+from erdqlib.tool.path import get_path_from_package
+
+LOGGER = create_logger(__name__)
 
 
 class GbmFtiCalibrator(FtiCalibrator):
@@ -125,12 +136,8 @@ class GbmFtiCalibrator(FtiCalibrator):
     @staticmethod
     def calculate_option_price(
             S0: float, K: float, T: float, r: float, sigma: float,
-            side: OptionSide, o_type: OptionType = OptionType.EUROPEAN,
-            ft_method: FtMethod = FtMethod.LEWIS
+            side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
     ):
-        if o_type is not OptionType.EUROPEAN:
-            raise NotImplementedError()
-
         """Valuation of European call option in H93 model via Lewis (2001)
 
         Parameter definition:
@@ -159,3 +166,111 @@ class GbmFtiCalibrator(FtiCalibrator):
                 S0=S0, K=K, T=T, r=r, sigma=sigma, side=side
             )
         raise ValueError(f"Invalid FtMethod method: {ft_method}")
+
+    @staticmethod
+    def calculate_error(
+            gbm_params: np.array, df_options: pd.DataFrame, s0: float, side: OptionSide,
+            print_iter: Optional[List[float]] = None, min_MSE: Optional[List[float]] = None,
+            ft_method: FtMethod = FtMethod.LEWIS
+    ) -> float:
+        sigma = gbm_params
+        if GbmDynamicsParameters.do_parameters_offbound(sigma=sigma):
+            return MIN_MSE
+        se = []
+        for _, option in df_options.iterrows():
+            model_value: float = GbmFtiCalibrator.calculate_option_price(
+                S0=s0,
+                K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
+                sigma=sigma,
+                side=side, ft_method=ft_method
+            )
+            se.append((model_value - option[side.name]) ** 2)
+        mse: float = sum(se) / len(se)
+        if min_MSE is not None:
+            min_MSE[0] = min(min_MSE[0], mse)
+        if print_iter is not None:
+            if print_iter[0] % 25 == 0:
+                LOGGER.info(
+                    f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in gbm_params)}] | {mse:7.3f} | {min_MSE[0]:7.3f}"
+                )
+            print_iter[0] += 1
+        return mse
+
+    @staticmethod
+    def calibrate(
+            df_options: pd.DataFrame, S0: float, r: float, side: OptionSide,
+            ft_method: FtMethod = FtMethod.LEWIS, **kwargs
+    ) -> GbmDynamicsParameters:
+        """
+        Calibrate the Geometric Brownian Motion (GBM) model parameters using Fourier Transform methods.
+        """
+        print_iter = [0]
+        min_MSE = [MIN_MSE]
+
+        LOGGER.info("Fmin begins")
+        p_opt: np.array = fmin(
+            lambda p, data=df_options, s0=S0, option_side=side: GbmFtiCalibrator.calculate_error(
+                p, df_options=data, s0=s0, side=option_side, print_iter=print_iter, min_MSE=min_MSE,
+                ft_method=ft_method
+            ),
+            np.array([0.1], dtype=float), # Initial guess for sigma
+            xtol=1e-6, ftol=1e-6, maxiter=500, maxfun=700
+        )
+        return GbmDynamicsParameters.from_calibration_output(opt_arr=p_opt, s0=S0, r=r)
+
+
+def plot_Jump(
+        opt_params: GbmDynamicsParameters, df_options: pd.DataFrame, S0: float,
+        side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
+):
+    """Plot market and model prices for each maturity and OptionSide."""
+    sigma, = opt_params.get_values()
+    df_options_plt = df_options.copy()
+    df_options_plt[OptionDataColumn.MODEL] = 0.0
+    for row, option in df_options_plt.iterrows():
+        df_options_plt.loc[row, OptionDataColumn.MODEL] = GbmFtiCalibrator.calculate_option_price(
+            S0=S0,
+            K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
+            sigma=sigma,
+            side=side, ft_method=ft_method
+        )
+
+    for maturity, df_options_per_maturity in df_options_plt.groupby(OptionDataColumn.DAYSTOMATURITY):
+        df_options_per_maturity[[side.name, OptionDataColumn.MODEL]].plot(
+            style=["b-", "ro"], title=f"Maturity {maturity} {side.name}"
+        )
+        plt.ylabel("Option Value")
+    plt.show()
+
+
+def ex_calibration(
+        data_path: str,
+        side: OptionSide,
+        skip_plot: bool = False
+):
+    """Example: calibrate Merton (1976) model to market data and plot results for given OptionSide."""
+    S0 = 3225.93  # EURO STOXX 50 level September 30, 2014
+    r = 0.005
+    ft_method: FtMethod = FtMethod.LEWIS
+
+    df_options: pd.DataFrame = load_option_data(
+        path_str=data_path,
+        S0=S0,  # EURO STOXX 50 level September 30, 2014
+        r_provider=lambda *_: r,  # constant short rate
+        days_to_maturity_target=17  # 17 days to maturity
+    )
+
+    params_jump: GbmDynamicsParameters = GbmFtiCalibrator.calibrate(
+        df_options=df_options, S0=S0, side=side, r=r,
+        ft_method=ft_method
+    )
+    LOGGER.info(f"Gbm calib: {params_jump}")
+    if not skip_plot:
+        plot_Jump(params_jump, df_options=df_options, S0=S0, side=side, ft_method=ft_method)
+
+
+if __name__ == "__main__":
+    ex_calibration(
+        data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
+        side=OptionSide.CALL
+    )
