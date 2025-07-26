@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -6,6 +8,7 @@ from erdqlib.src.common.option import OptionDataColumn
 from erdqlib.src.common.rate import SplineCurve, ForwardsLadder
 from erdqlib.src.ft.cir import CirCalibrator
 from erdqlib.src.mc.cir import CirDynamicsParameters
+from erdqlib.tests.test_data import compare_arrays_and_update
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
 
@@ -23,7 +26,25 @@ def cir_params():
     )
 
 
-def test_cir_shortrate_calibration(cir_params):
+def test_cir_forward_rate(cir_params):
+    """Test the forward rate calculation for the CIR model."""
+    maturities_ladder: np.ndarray = np.array([0., 0.25, 0.5, 1.0])  # Example maturities in years
+    r0: float = cir_params.x0
+
+    forward_rates: np.ndarray = CirCalibrator.calculate_forward_rate(
+        alpha=np.array([cir_params.kappa_cir, cir_params.theta_cir, cir_params.sigma_cir]),
+        maturities_ladder=maturities_ladder,
+        r0=r0
+    )
+
+    LOGGER.info(f"Forward rates:\n{forward_rates}")
+    np.testing.assert_array_almost_equal(
+        forward_rates,
+        np.array([-0.00029348392530115946, 0.0016899649181064454, 0.003496827391669189, 0.006651532318784888])
+    )
+
+
+def test_cir_shortrate_calibration():
     # Euribor Market data
     euribor_df: pd.DataFrame = pd.read_csv(
         get_path_from_package("erdqlib@src/ft/data/euribor_20140930.csv")
@@ -45,4 +66,7 @@ def test_cir_shortrate_calibration(cir_params):
         maturities_ladder=forward_rates.maturities
     )
 
-    assert params_cir == cir_params
+    compare_arrays_and_update(
+        actual=params_cir.to_dataframe().values,
+        expected_path=Path(get_path_from_package("erdqlib@tests/src/ft/data/test_cir_calibration.csv"))
+    )

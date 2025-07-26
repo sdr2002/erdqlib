@@ -192,7 +192,7 @@ class HestonFtiCalibrator(FtiCalibrator):
     @staticmethod
     def calculate_option_price(
             S0: float, K: float, T: float, r: float,
-            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
+            kappa_v: float, theta_v: float, sigma_v: float, rho_v: float, v0: float,
             side: OptionSide, otype: OptionType = OptionType.EUROPEAN,
             ft_method: FtMethod = FtMethod.LEWIS
     ):
@@ -228,11 +228,11 @@ class HestonFtiCalibrator(FtiCalibrator):
         """
         if ft_method is FtMethod.LEWIS:
             return HestonFtiCalibrator.calculate_option_price_lewis(
-                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0, side=side
+                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0, side=side
             )
         elif ft_method is FtMethod.CARRMADAN:
             return HestonFtiCalibrator.calculate_option_price_carrmadan(
-                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0, side=side
+                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0, side=side
             )
         raise ValueError(f"Invalid FtMethod method: {ft_method}")
 
@@ -253,7 +253,7 @@ class HestonFtiCalibrator(FtiCalibrator):
                 kappa_v=kappa_v,
                 theta_v=theta_v,
                 sigma_v=sigma_v,
-                rho=rho,
+                rho_v=rho,
                 v0=v0,
                 side=side,
                 ft_method=ft_method
@@ -298,7 +298,7 @@ class HestonFtiCalibrator(FtiCalibrator):
             model_value = HestonFtiCalibrator.calculate_option_price(
                 S0=s0,
                 K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
-                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho_v=rho, v0=v0,
                 side=side, ft_method=ft_method
             )
             se.append((model_value - option[side.name]) ** 2)
@@ -358,7 +358,7 @@ def plot_Heston(
         df_options_plt.loc[row, OptionDataColumn.MODEL] = HestonFtiCalibrator.calculate_option_price(
             side=side,
             S0=S0, K=option[OptionDataColumn.STRIKE], T=option[OptionDataColumn.TENOR], r=option[OptionDataColumn.RATE],
-            kappa_v=opt_params.kappa_heston, theta_v=opt_params.theta_heston, sigma_v=opt_params.sigma_heston, rho=opt_params.rho_heston, v0=opt_params.v0_heston,
+            kappa_v=opt_params.kappa_heston, theta_v=opt_params.theta_heston, sigma_v=opt_params.sigma_heston, rho_v=opt_params.rho_heston, v0=opt_params.v0_heston,
             ft_method=ft_method
         )
 
@@ -390,7 +390,7 @@ def ex_pricing():
 
     for side in [OptionSide.CALL, OptionSide.PUT]:
         value = HestonFtiCalibrator.calculate_option_price(
-            S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+            S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho_v=rho, v0=v0,
             side=side, ft_method=ft_method
         )
         LOGGER.info(f"Value of the {side.name} option under Heston is:  ${value}")

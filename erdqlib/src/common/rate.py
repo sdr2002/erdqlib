@@ -32,7 +32,7 @@ def implied_yield(t_year: float, price_0_t: float, price_t_t: float = 1.0):
     return np.log(price_t_t / price_0_t) / t_year
 
 
-def instantaneous_rate(t_year: float, price_0_t: float) -> float:
+def yield_to_maturity_from_spot_price(t_year: float, price_0_t: float) -> float:
     """Instantaneous rate from Zero-Coupon-Bond price and time in years"""
     if t_year <= 0:
         raise ValueError("Time in years must be positive")

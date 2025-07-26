@@ -33,8 +33,6 @@ def load_option_data(
     # Option Selection
     if strike_tol:
         df_options = df_options[(np.abs(df_options[OptionDataColumn.STRIKE] - S0) / S0) < strike_tol]
-    if days_to_maturity_target:
-        df_options = df_options[df_options[OptionDataColumn.DAYSTOMATURITY] == days_to_maturity_target]
     df_options = df_options.rename(columns={c: c.upper() for c in OptionDataColumn.get_callput_str()})
 
     # Adding Time-to-Maturity and constant short-rates
@@ -42,6 +40,12 @@ def load_option_data(
         df_options[OptionDataColumn.DAYSTOMATURITY] = (df_options[OptionDataColumn.MATURITY] - df_options[OptionDataColumn.DATE]).dt.days
     elif OptionDataColumn.DAYSTOMATURITY not in df_options.columns:
         raise ValueError("Option data must contain either 'Maturity' and 'Date' columns or 'DaysToMaturity' column.")
+
+    if days_to_maturity_target:
+        df_options = df_options[df_options[OptionDataColumn.DAYSTOMATURITY] == days_to_maturity_target]
+        if df_options.empty:
+            raise ValueError(f"No options found with {days_to_maturity_target} days to maturity.")
+
     df_options[OptionDataColumn.TENOR] = df_options[OptionDataColumn.DAYSTOMATURITY] / n_bdays_per_year
     df_options[OptionDataColumn.RATE] = df_options.apply(lambda row: r_provider(row[OptionDataColumn.TENOR]), axis=1)
 

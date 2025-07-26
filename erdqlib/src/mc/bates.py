@@ -73,14 +73,14 @@ class BatesDynamicsParameters(HestonDynamicsParameters, JumpOnlyDynamicsParamete
         return BatesDynamicsParameters(
             x0=S0,
             r=r,
-            kappa_heston=opt_arr[0],
-            theta_heston=opt_arr[1],
-            sigma_heston=opt_arr[2],
-            rho_heston=opt_arr[3],
-            v0_heston=opt_arr[4],
-            lambd_merton=opt_arr[5],
-            mu_merton=opt_arr[6],
-            delta_merton=opt_arr[7]
+            kappa_heston=float(opt_arr[0]),
+            theta_heston=float(opt_arr[1]),
+            sigma_heston=float(opt_arr[2]),
+            rho_heston=float(opt_arr[3]),
+            v0_heston=float(opt_arr[4]),
+            lambd_merton=float(opt_arr[5]),
+            mu_merton=float(opt_arr[6]),
+            delta_merton=float(opt_arr[7])
         )
 
     @staticmethod

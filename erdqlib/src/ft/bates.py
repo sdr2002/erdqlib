@@ -148,19 +148,19 @@ class BatesFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_option_price(
-        S0, K, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta,
+        S0, K, T, r, kappa_v, theta_v, sigma_v, rho_v, v0, lambd, mu, delta,
         side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         if ft_method is FtMethod.LEWIS:
-            return BatesFtiCalibrator.calculate_option_price_lewis(
-                x0=S0, K=K, T=T, r=r, kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho, v0_heston=v0,
+            return float(BatesFtiCalibrator.calculate_option_price_lewis(
+                x0=S0, K=K, T=T, r=r, kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho_v, v0_heston=v0,
                 lambd_merton=lambd, mu_merton=mu, delta_merton=delta, side=side
-            )
+            ))
         elif ft_method is FtMethod.CARRMADAN:
-            return BatesFtiCalibrator.calculate_option_price_carrmadan(
-                x0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+            return float(BatesFtiCalibrator.calculate_option_price_carrmadan(
+                x0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0,
                 lambd=lambd, mu=mu, delta=delta, side=side
-            )
+            ))
         raise ValueError(f"Invalid FtMethod method: {ft_method}")
 
     @staticmethod
@@ -181,7 +181,7 @@ class BatesFtiCalibrator(FtiCalibrator):
                 kappa_v=kappa_v,
                 theta_v=theta_v,
                 sigma_v=sigma_v,
-                rho=rho,
+                rho_v=rho,
                 v0=v0,
                 lambd=lambd,
                 mu=mu,
@@ -216,7 +216,7 @@ class BatesFtiCalibrator(FtiCalibrator):
                 kappa_v=kappa_v,
                 theta_v=theta_v,
                 sigma_v=sigma_v,
-                rho=rho,
+                rho_v=rho,
                 v0=v0,
                 lambd=lambd,
                 mu=mu,
@@ -307,7 +307,7 @@ class BatesFtiCalibrator(FtiCalibrator):
                 kappa_v=kappa_v,
                 theta_v=theta_v,
                 sigma_v=sigma_v,
-                rho=rho,
+                rho_v=rho,
                 v0=v0,
                 lambd=lambd,
                 mu=mu,
@@ -477,7 +477,7 @@ def ex_pricing():
     for side in [OptionSide.CALL, OptionSide.PUT]:
         value = BatesFtiCalibrator.calculate_option_price(
             S0=S0, K=K, T=T, r=r,
-            kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0,
+            kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho_v=rho, v0=v0,
             lambd=lambd, mu=mu, delta=delta,
             side=side, ft_method=ft_method
         )
@@ -490,8 +490,6 @@ def ex_calibration(
         params_path = None,
         skip_plot: bool = False
 ):
-    ft_method: FtMethod = FtMethod.LEWIS
-
     """Example: calibrate Bates (1996) model to market data and plot results for given OptionSide.
     Runs both short (jump-only) and full calibration.
     """

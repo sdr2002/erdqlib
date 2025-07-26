@@ -85,11 +85,11 @@ class HestonDynamicsParameters(DynamicsParameters):
     ) -> "HestonDynamicsParameters":
         return HestonDynamicsParameters(
             x0=S0, r=r,
-            kappa_heston=opt_arr[0],
-            theta_heston=opt_arr[1],
-            sigma_heston=opt_arr[2],
-            rho_heston=opt_arr[3],
-            v0_heston=opt_arr[4],
+            kappa_heston=float(opt_arr[0]),
+            theta_heston=float(opt_arr[1]),
+            sigma_heston=float(opt_arr[2]),
+            rho_heston=float(opt_arr[3]),
+            v0_heston=float(opt_arr[4]),
         )
 
 
@@ -240,10 +240,13 @@ class Heston(MonteCarlo):
         ax3.hist(var_last, density=True, bins=500)
         ax3.axvline(x=model_params.v0_heston, color='black', linestyle='--', label='v0')
         x_var = np.linspace(var_last.min(), var_last.max(), 500)
-        ax3.plot(
-            x_var, ss.lognorm.pdf(x_var, *ss.lognorm.fit(var_last, floc=0)),
-            color="r", label=f"LogNormal density"
-        )
+        try:
+            ax3.plot(
+                x_var, ss.lognorm.pdf(x_var, *ss.lognorm.fit(var_last, floc=0)),
+                color="r", label=f"LogNormal density"
+            )
+        except Exception as e:
+            pass
         ax3.set_xlabel('Variance')
         ax3.legend()
 

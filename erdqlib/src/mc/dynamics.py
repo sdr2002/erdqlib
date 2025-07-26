@@ -13,10 +13,10 @@ import scipy.stats as ss
 @dataclass
 class SamplingParameters:
     T: float  # Number of years
-    M: int  # Number time transitions
-    I: int  # Number of paths
+    M: Optional[int]  # Number time transitions
+    I: Optional[int]  # Number of paths
 
-    random_seed: int  # random seed
+    random_seed: Optional[int]  # random seed
 
     def get_sampling_parameters(self) -> Self:
         return SamplingParameters(
@@ -81,6 +81,12 @@ class DynamicsParameters:
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=4, ensure_ascii=True)
+
+    def to_dataframe(self) -> pd.DataFrame:
+        return pd.DataFrame(asdict(self), index=['value'], dtype=float)
+
+    def to_csv(self):
+        self.to_dataframe().to_csv(index=False)
 
 
 @dataclass

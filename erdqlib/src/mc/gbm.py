@@ -10,10 +10,14 @@ from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
 
+@dataclass
+class GbmDynamicsParameters(ModelParameters):
+    sigma: float
+
 
 @dataclass
-class GbmParameters(ModelParameters):
-    sigma: float
+class GbmParameters(GbmDynamicsParameters):
+    pass
 
 
 class Gbm(MonteCarlo):

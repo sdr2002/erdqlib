@@ -4,7 +4,7 @@ from typing import Optional, Tuple, List
 
 import numpy as np
 
-from erdqlib.src.common.rate import instantaneous_rate
+from erdqlib.src.common.rate import yield_to_maturity_from_spot_price
 from erdqlib.src.mc.bates import BatesDynamicsParameters, BatesParameters
 from erdqlib.src.mc.cir import CirDynamicsParameters, CirParameters
 
@@ -102,7 +102,7 @@ class BCCParameters(CirParameters, BatesParameters):
         """Get parameters for pricing: apply_shortrate for BCC (1997) model if True, else for Bates (1996) model"""
         r: float = self.r
         if apply_shortrate:
-            r = instantaneous_rate(B(self.get_B_params()), self.T)
+            r = yield_to_maturity_from_spot_price(t_year=self.T, price_0_t=B(self.get_B_params()))
 
         return [self.x0, self.T, r] + self.get_calibrable_params()
 
@@ -112,3 +112,16 @@ class BCCParameters(CirParameters, BatesParameters):
             self.kappa_heston, self.theta_heston, self.sigma_heston, self.rho_heston, self.v0_heston,  # Heston
             self.lambd_merton, self.mu_merton, self.delta_merton  # Merton
         ]
+
+    def get_bates_params(self) -> BatesParameters:
+        return BatesParameters(
+            x0=self.x0,
+            r=yield_to_maturity_from_spot_price(t_year=self.T, price_0_t=B(self.get_B_params())),
+            kappa_heston=self.kappa_heston, theta_heston=self.theta_heston, sigma_heston=self.sigma_heston, rho_heston=self.rho_heston, v0_heston=self.v0_heston,
+            lambd_merton=self.lambd_merton, mu_merton=self.mu_merton, delta_merton=self.delta_merton,
+            T=self.T, M=self.M, I=self.I, random_seed=self.random_seed
+        )
+
+
+class BCC:
+    pass

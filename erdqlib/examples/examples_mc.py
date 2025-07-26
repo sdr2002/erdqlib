@@ -245,7 +245,7 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
 
         price_dict['type'].append(o_type)
         price_dict['side'].append(o_info.side)
-        price_dict['S0'].append(j_params.S0)
+        price_dict['S0'].append(j_params.x0)
         price_dict['K'].append(K)
         price_dict['Barrier'].append(barrier)
         price_dict['option_price'].append(f"{option_price:.4g}")
@@ -569,7 +569,7 @@ def _q14(S0: float, skip_plot: bool = True):
 
             price_dict['type'].append(o_type)
             price_dict['side'].append(o_info.side)
-            price_dict['S0'].append(h_params.S0)
+            price_dict['S0'].append(h_params.x0)
             price_dict['K'].append(K)
             price_dict['Barrier'].append(barrier)
             price_dict['option_price'].append(f"{option_price:.3g}")

@@ -1,13 +1,12 @@
-from typing import Tuple, List, Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from scipy.interpolate import splev, splrep
 from scipy.optimize import fmin
 
 from erdqlib.src.common.option import OptionDataColumn
-from erdqlib.src.common.rate import capitalization_factor, zero_rate, SplineCurve, ForwardsLadder
+from erdqlib.src.common.rate import SplineCurve, ForwardsLadder
 from erdqlib.src.mc.cir import CirDynamicsParameters
 from erdqlib.tool.logger_util import create_logger
 from erdqlib.tool.path import get_path_from_package
@@ -73,7 +72,7 @@ class CirCalibrator:
         print_iter = [0]
         min_MSE = [MIN_MSE]
 
-        LOGGER.info("Fmin begins")
+        LOGGER.info("CIR calibration begins: Fmin")
         c_opt: np.ndarray = fmin(
             lambda p, f=curve_forward_rates, r=r0: CirCalibrator.calculate_error(
                 cir_params=p, curve_forward_rates=f, maturities_ladder=maturities_ladder, r0=r,
@@ -83,7 +82,9 @@ class CirCalibrator:
             xtol=0.00001, ftol=0.00001, maxiter=300, maxfun=500,
             full_output= False, retall=False, disp=False
         )
-        return CirDynamicsParameters.from_calibration_output(opt_arr=c_opt, x0=r0)  # type: ignore
+        opt = CirDynamicsParameters.from_calibration_output(opt_arr=c_opt, x0=r0)  # type: ignore
+        LOGGER.info(f"CIR calibrated: {opt}")
+        return opt
 
 
 def plot_interpolated_curve(
@@ -150,9 +151,7 @@ def plot_calibrated_cir(
 def ex_calibration(
     skip_plot: bool
 ):
-    """
-    Example of CIR (1985) calibration
-    """
+    """Example of CIR (1985) calibration of euribor dynamics."""
     # Euribor Market data
     euribor_df: pd.DataFrame = pd.read_csv(
         # get_path_from_package("erdqlib@src/ft/data/euribor_20140930.csv")
