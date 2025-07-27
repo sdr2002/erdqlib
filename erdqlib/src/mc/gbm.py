@@ -1,19 +1,43 @@
 from dataclasses import dataclass
+from typing import Optional, Tuple
 
 import numpy as np
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
-from erdqlib.src.mc.dynamics import ModelParameters
+from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.mc.dynamics import MonteCarlo
 from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
 
+@dataclass
+class GbmDynamicsParameters(DynamicsParameters):
+    sigma: float
+
+    @staticmethod
+    def do_parameters_offbound(sigma: float, *_, **__) -> bool:
+        return sigma <= 0.0
+
+    @staticmethod
+    def from_calibration_output(
+        opt_arr: np.ndarray,
+        s0: Optional[float] = None, r: Optional[float] = None,
+        *_, **__
+    ) -> "GbmDynamicsParameters":
+        return GbmDynamicsParameters(
+            x0=s0,
+            r=r,
+            sigma=float(opt_arr[0])
+        )
+
+    def get_values(self) -> Tuple[float]:
+        return (self.sigma,)
+
 
 @dataclass
-class GbmParameters(ModelParameters):
-    sigma: float
+class GbmParameters(ModelParameters, GbmDynamicsParameters):
+    pass
 
 
 class Gbm(MonteCarlo):
@@ -29,7 +53,7 @@ class Gbm(MonteCarlo):
         x_arr2d: np.ndarray = g_params.create_zeros_state_matrix()
         for t in range(0, g_params.M + 1):
             if t == 0:
-                x_arr2d[0] = g_params.S0
+                x_arr2d[0] = g_params.x0
                 continue
             x_arr2d[t] = x_arr2d[t - 1] * np.exp(
                 (g_params.r - 0.5 * g_params.sigma ** 2) * dt
@@ -50,7 +74,7 @@ def example_gbm():
     g_params: GbmParameters = GbmParameters(
         sigma=0.2,
 
-        S0=100,  # Current underlying asset price
+        x0=100,  # Current underlying asset price
         r=0.05,  # Risk-free rate
 
         T=1,  # Number of years
@@ -66,7 +90,7 @@ def example_gbm():
         underlying_path=S,
         d=g_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )}")
@@ -75,7 +99,7 @@ def example_gbm():
         underlying_path=S,
         d=g_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )}")

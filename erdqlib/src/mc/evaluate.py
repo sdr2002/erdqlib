@@ -24,7 +24,7 @@ def price_montecarlo(
     assert isinstance(o.side, OptionSide)
 
     payoff: np.ndarray
-    match o.type:
+    match o.o_type:
         case OptionType.EUROPEAN:
             if o.side == OptionSide.CALL:
                 payoff = np.maximum(0, underlying_path[-1, :] - o.K)
@@ -145,6 +145,11 @@ def price_montecarlo(
 
             # 3) After backward induction, CF is already discounted to time t
             return cf.mean()
+        case OptionType.ASIAN:
+            if o.side == OptionSide.CALL:
+                payoff = np.maximum(0, np.mean(underlying_path,axis=0) - o.K)
+            else:
+                payoff = np.maximum(0, - np.mean(underlying_path,axis=0) + o.K)
         case _:
             raise TypeError(f"Unknown option type: {o.type}")
 
@@ -180,7 +185,7 @@ def calculate_delta(
             underlying_path=s_arr2d,
             d=model_params,
             o=OptionInfo(
-                type=option_type, K=strike, side=side
+                o_type=option_type, K=strike, side=side
             ),
             t=0.
         )

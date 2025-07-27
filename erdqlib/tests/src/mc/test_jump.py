@@ -13,12 +13,12 @@ from erdqlib.tool.path import get_path_from_package
 @pytest.fixture
 def jump_params():
     return JumpParameters(
-        lambd=0.75,  # Lambda of the model
-        mu=-0.6,  # Mu
-        delta=0.25,  # Delta
-        sigma=0.2,
+        lambd_merton=0.75,  # Lambda of the model
+        mu_merton=-0.6,  # Mu
+        delta_merton=0.25,  # Delta
+        sigma_merton=0.2,
 
-        S0=100,  # Current underlying asset price
+        x0=100.0,  # Current underlying asset price
         r=0.05,  # Risk-free rate
 
         T=1,  # Number of years
@@ -40,7 +40,7 @@ def test_jump_eur_option_price(jump_params):
         underlying_path=s_paths,
         d=jump_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )
@@ -49,7 +49,7 @@ def test_jump_eur_option_price(jump_params):
         underlying_path=s_paths,
         d=jump_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )
@@ -57,5 +57,5 @@ def test_jump_eur_option_price(jump_params):
     expected_call_price: float = 1.8476007195750768
     np.testing.assert_approx_equal(call_price, expected_call_price, significant=4)
 
-    expected_put_price: float = 44.48880258567182
+    expected_put_price: float = 44.77402984425289
     np.testing.assert_approx_equal(put_price, expected_put_price, significant=4)

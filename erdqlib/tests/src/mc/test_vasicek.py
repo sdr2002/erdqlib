@@ -18,10 +18,10 @@ def vasicek_params():
         I=10,
         random_seed=0,
 
-        S0=0.03,
-        k=0.20,
-        theta=0.01,
-        sigma=0.0012,
+        x0=0.03,
+        kappa_vasicek=0.20,
+        theta_vasicek=0.01,
+        sigma_vasicek=0.0012,
         r=0.001,  # shift parameter, which is Risk-free rate in risk-neutral measure
     )
 
@@ -40,7 +40,7 @@ def test_vasicek_eur_option_price(vasicek_params):
         underlying_path=s_paths,
         d=vasicek_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=0.02, side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=0.02, side=OptionSide.CALL
         ),
         t=0.
     )
@@ -49,7 +49,7 @@ def test_vasicek_eur_option_price(vasicek_params):
         underlying_path=s_paths,
         d=vasicek_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=0.04, side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=0.04, side=OptionSide.PUT
         ),
         t=0.
     )

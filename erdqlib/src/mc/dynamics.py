@@ -1,20 +1,22 @@
+import json
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Dict
+from dataclasses import dataclass, asdict
+from typing import Dict, Tuple
 from typing import Self, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import scipy.stats as ss
 
 
 @dataclass
 class SamplingParameters:
     T: float  # Number of years
-    M: int  # Number time transitions
-    I: int  # Number of paths
+    M: Optional[int]  # Number time transitions
+    I: Optional[int]  # Number of paths
 
-    random_seed: int  # random seed
+    random_seed: Optional[int]  # random seed
 
     def get_sampling_parameters(self) -> Self:
         return SamplingParameters(
@@ -34,13 +36,57 @@ class SamplingParameters:
 
 @dataclass
 class DynamicsParameters:
-    S0: float  # Current underlying asset price
+    x0: Optional[float]  # Current underlying asset price
     r: Optional[float]  # Risk-free rate
 
     def get_dynamics_parameters(self) -> Self:
         return DynamicsParameters(
-            S0=self.S0, r=self.r
+            x0=self.x0, r=self.r
         )
+
+    @staticmethod
+    def do_parameters_offbound(*args, **kwargs) -> bool:
+        """
+        Check if any of the parameters are off the bounds.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
+
+    def get_values(self) -> Tuple[...]:
+        """
+        Get the values of the dynamics parameters.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
+
+    @staticmethod
+    def from_calibration_output(opt_arr: np.ndarray, s0:float, r:float, *_, **__) -> "DynamicsParameters":
+        """
+        Create an instance of the dynamics parameters from calibration output.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
+
+    @staticmethod
+    def get_default_search_grid() -> Tuple[...]:
+        """
+        Get the default search grid for the dynamics parameters.
+        This method should be overridden in derived classes.
+        """
+        raise NotImplementedError("This method should be overridden in derived classes.")
+
+    def __str__(self, new_line: bool = True) -> str:
+        table_str: str = pd.DataFrame(asdict(self), index=[0]).dropna(axis=1).to_markdown(index=False)
+        return "\n" + table_str if new_line else table_str
+
+    def to_json(self) -> str:
+        return json.dumps(asdict(self), indent=4, ensure_ascii=True)
+
+    def to_dataframe(self) -> pd.DataFrame:
+        return pd.DataFrame(asdict(self), index=['value'], dtype=float)
+
+    def to_csv(self):
+        self.to_dataframe().to_csv(index=False)
 
 
 @dataclass
@@ -65,7 +111,8 @@ class MonteCarlo(ABC):
             paths: Dict[str, np.ndarray],
             model_params: ModelParameters,
             model_name: str,
-            logy: bool = False
+            logy: bool = False,
+            ylabel: str = "Price"
     ):
         x_paths: np.ndarray = paths['x']
         fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(7, 8))
@@ -76,17 +123,18 @@ class MonteCarlo(ABC):
         ax0.grid()
         ax0.set_title(f"{model_name} Underlying Price Paths")
         ax0.set_xlabel("Timestep")
-        ax0.set_ylabel("Price")
+        ax0.set_ylabel(ylabel)
 
         # Distribution of final (log) return of underlying price
-        y_arr = x_paths[-1, :] if not logy else np.log(x_paths[-1, :] / model_params.S0)
+        y_arr = x_paths[-1, :] if not logy else np.log(x_paths[-1, :] / model_params.x0)
         x = np.linspace(y_arr.min(), y_arr.max(), 500)
 
         ax1 = axs[1]
         q5 = np.quantile(y_arr, 0.05)
+        q95 = np.quantile(y_arr, 0.95)
         ax1.hist(
             y_arr, density=True, bins=500,
-            label=f"{model_name} (q1={np.quantile(y_arr, 0.01):.3g}, q5={q5:.3g},"
+            label=f"{model_name} (q5={q5:.3g}, q95={q95:.3g},"
                   f" sk={ss.skew(y_arr):.3g}, kt={ss.kurtosis(y_arr):.3g})"
         )
         ax1.axvline(x=q5, color='black', linestyle='--')

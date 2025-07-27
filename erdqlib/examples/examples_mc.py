@@ -32,9 +32,9 @@ def q8(skip_plot: bool = True):
     price an ATM European call and an ATM European put with jump intensity parameter equal to 0.75.
     """
     j_params: JumpParameters = JumpParameters(
-        lambd=0.75,
-        mu=-0.5,
-        delta=0.22,
+        lambd_merton=0.75,
+        mu_merton=-0.5,
+        delta_merton=0.22,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -50,7 +50,7 @@ def q8(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     ):.3g}")
@@ -59,7 +59,7 @@ def q8(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     ):.3g}")
@@ -70,9 +70,9 @@ def q9(skip_plot: bool = True):
     price an ATM European call and an ATM European put with jump intensity parameter equal to 0.25.
     """
     j_params: JumpParameters = JumpParameters(
-        lambd=0.25,
-        mu=-0.5,
-        delta=0.22,
+        lambd_merton=0.25,
+        mu_merton=-0.5,
+        delta_merton=0.22,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -88,7 +88,7 @@ def q9(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     ):.3g}")
@@ -97,7 +97,7 @@ def q9(skip_plot: bool = True):
         underlying_path=S,
         d=j_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     ):.3g}")
@@ -122,9 +122,9 @@ def _delta_per_S0(
                 bump_ratio=ud_ratio,
                 model=MertonJump(),
                 model_params_creator= lambda s0: JumpParameters(
-                    lambd=lambd,
-                    mu=-0.5,
-                    delta=0.22,
+                    lambd_merton=lambd,
+                    mu_merton=-0.5,
+                    delta_merton=0.22,
 
                     M=500,  # Total time steps
                     I=10000,  # Number of simulations
@@ -205,9 +205,9 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
     params_to_overide = copy.deepcopy(COMMON_PARAMS)
     params_to_overide['S0'] = S0
     j_params: JumpParameters = JumpParameters(
-        lambd=0.75,
-        mu=-0.5,
-        delta=0.22,
+        lambd_merton=0.75,
+        mu_merton=-0.5,
+        delta_merton=0.22,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -225,11 +225,11 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
     for o_type in [OptionType.EUROPEAN, OptionType.DOWNANDIN]:
         if o_type == OptionType.EUROPEAN:
             o_info = OptionInfo(
-                type=OptionType.EUROPEAN, K=K, side=side,
+                o_type=OptionType.EUROPEAN, K=K, side=side,
             )
         elif o_type == OptionType.DOWNANDIN:
             o_info = BarrierOptionInfo(
-                type=OptionType.DOWNANDIN, K=K, side=side,
+                o_type=OptionType.DOWNANDIN, K=K, side=side,
                 barrier=barrier
             )
         else:
@@ -245,7 +245,7 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
 
         price_dict['type'].append(o_type)
         price_dict['side'].append(o_info.side)
-        price_dict['S0'].append(j_params.S0)
+        price_dict['S0'].append(j_params.x0)
         price_dict['K'].append(K)
         price_dict['Barrier'].append(barrier)
         price_dict['option_price'].append(f"{option_price:.4g}")
@@ -268,10 +268,10 @@ def q5(skip_plot: bool = True):
     rho = -0.3
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
         M=500,  # Total time steps
         I=10000,  # Number of simulations
         random_seed=0,
@@ -286,7 +286,7 @@ def q5(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     )}")
@@ -295,7 +295,7 @@ def q5(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     )}")
@@ -308,10 +308,10 @@ def q6(skip_plot: bool = True):
     rho = -0.7
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -327,7 +327,7 @@ def q6(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.
     )}")
@@ -336,7 +336,7 @@ def q6(skip_plot: bool = True):
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     )}")
@@ -355,10 +355,10 @@ def _delta_per_S0_q7(
                 bump_ratio=ud_ratio,
                 model=Heston(),
                 model_params_creator=lambda s0: HestonParameters(
-                    v0=0.032,
-                    kappa=1.85,
-                    theta=0.045,
-                    rho=rho,
+                    v0_heston=0.032,
+                    kappa_heston=1.85,
+                    theta_heston=0.045,
+                    rho_heston=rho,
 
                     M=500,  # Total time steps
                     I=10000,  # Number of simulations
@@ -433,10 +433,10 @@ price the put). Comment on the differences you observe from original Questions
     rho = -0.3
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
         M=500,  # Total time steps
         I=10000,  # Number of simulations
         random_seed=0,
@@ -451,7 +451,7 @@ price the put). Comment on the differences you observe from original Questions
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
+            o_type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
         t=0.,
         verbose=True
@@ -461,7 +461,7 @@ price the put). Comment on the differences you observe from original Questions
         underlying_path=S,
         d=h_params,
         o=OptionInfo(
-            type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
+            o_type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
         t=0.
     )}")
@@ -527,10 +527,10 @@ def _q14(S0: float, skip_plot: bool = True):
     rho = -0.7
 
     h_params: HestonParameters = HestonParameters(
-        v0=0.032,
-        kappa=1.85,
-        theta=0.045,
-        rho=rho,
+        v0_heston=0.032,
+        kappa_heston=1.85,
+        theta_heston=0.045,
+        rho_heston=rho,
 
         M=500,  # Total time steps
         I=10000,  # Number of simulations
@@ -549,11 +549,11 @@ def _q14(S0: float, skip_plot: bool = True):
         for o_type in [OptionType.EUROPEAN, OptionType.UPANDIN]:
             if o_type == OptionType.EUROPEAN:
                 o_info = OptionInfo(
-                    type=OptionType.EUROPEAN, K=K, side=side,
+                    o_type=OptionType.EUROPEAN, K=K, side=side,
                 )
             elif o_type == OptionType.UPANDIN:
                 o_info = BarrierOptionInfo(
-                    type=OptionType.UPANDIN, K=K, side=side,
+                    o_type=OptionType.UPANDIN, K=K, side=side,
                     barrier=barrier
                 )
             else:
@@ -569,7 +569,7 @@ def _q14(S0: float, skip_plot: bool = True):
 
             price_dict['type'].append(o_type)
             price_dict['side'].append(o_info.side)
-            price_dict['S0'].append(h_params.S0)
+            price_dict['S0'].append(h_params.x0)
             price_dict['K'].append(K)
             price_dict['Barrier'].append(barrier)
             price_dict['option_price'].append(f"{option_price:.3g}")

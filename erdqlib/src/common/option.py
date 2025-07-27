@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from enum import StrEnum, auto
 
+from typing import List
+
 
 class OptionSide(StrEnum):
     CALL = auto()
@@ -17,7 +19,7 @@ class OptionType(StrEnum):
 
 @dataclass
 class OptionInfo:
-    type: OptionType
+    o_type: OptionType
     K: float  # strike price
     side: OptionSide
 
@@ -25,3 +27,27 @@ class OptionInfo:
 @dataclass
 class BarrierOptionInfo(OptionInfo):
     barrier: float
+
+
+class OptionDataColumn(StrEnum):
+    STRIKE = "Strike"
+    MATURITY = "Maturity"
+    DATE = "Date"
+    CALL = "Call"
+    PUT = "Put"
+
+    TENOR = "T"
+    RATE = "r"
+
+    MODEL = "Model"
+
+    DAYSTOMATURITY = "DaysToMaturity"
+
+    @staticmethod
+    def get_callput_str() -> List[str]:
+        return [str(OptionDataColumn.CALL.value), str(OptionDataColumn.PUT.value)]
+
+    @staticmethod
+    def get_datetime_cols() -> List[str]:
+        """Get the list of columns that should be parsed as datetime."""
+        return [str(OptionDataColumn.DATE.value), str(OptionDataColumn.MATURITY.value)]

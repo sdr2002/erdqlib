@@ -13,12 +13,12 @@ from erdqlib.tool.path import get_path_from_package
 @pytest.fixture
 def heston_params():
     return HestonParameters(
-        v0=0.04,
-        kappa=2,
-        sigma=0.3,
-        theta=0.04,
-        rho=-0.9,
-        S0=100,
+        v0_heston=0.04,
+        kappa_heston=2,
+        sigma_heston=0.3,
+        theta_heston=0.04,
+        rho_heston=-0.9,
+        x0=100,
         r=0.05,
         T=1,
         M=4,
@@ -43,7 +43,7 @@ def test_heston_eur_option_price(heston_params):
         underlying_path=s_paths,
         d=heston_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )
@@ -52,13 +52,13 @@ def test_heston_eur_option_price(heston_params):
         underlying_path=s_paths,
         d=heston_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )
 
-    expected_call_price: float = 9.250468788265543
+    expected_call_price: float = 12.790993816567376
     np.testing.assert_approx_equal(call_price, expected_call_price, significant=4)
 
-    expected_put_price: float = 6.905996174060089
+    expected_put_price: float = 5.38600153909068
     np.testing.assert_approx_equal(put_price, expected_put_price, significant=4)

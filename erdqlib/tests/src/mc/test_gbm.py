@@ -14,7 +14,7 @@ from erdqlib.tool.path import get_path_from_package
 def gbm_params():
     return GbmParameters(
         sigma=0.2,
-        S0=100,
+        x0=100,
         r=0.0001,
         T=1,
         M=4,
@@ -24,7 +24,7 @@ def gbm_params():
 
 
 def test_gbm_paths_values(gbm_params):
-    paths: np.array = Gbm.calculate_paths(gbm_params)
+    paths: np.ndarray = Gbm.calculate_paths(gbm_params)
     compare_arrays_and_update(
         paths,
         Path(get_path_from_package("erdqlib@tests/src/mc/data/test_gbm_paths_values.csv"))
@@ -32,12 +32,12 @@ def test_gbm_paths_values(gbm_params):
 
 
 def test_gbm_eur_option_price(gbm_params):
-    s_paths: np.array = Gbm.calculate_paths(gbm_params)
+    s_paths: np.ndarray = Gbm.calculate_paths(gbm_params)
     call_price: float = price_montecarlo(
         underlying_path=s_paths,
         d=gbm_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
         t=0.
     )
@@ -46,7 +46,7 @@ def test_gbm_eur_option_price(gbm_params):
         underlying_path=s_paths,
         d=gbm_params,
         o=OptionInfo(
-            type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
         t=0.
     )
