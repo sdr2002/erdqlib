@@ -74,7 +74,7 @@ def plot_calibration_result(df_options: pd.DataFrame, model_values: np.ndarray, 
         plt.figure(figsize=(8, 6))
         plt.subplot(211)
         plt.grid()
-        plt.title(f"(Full-calib) {side.name} at Maturity {maturity}")
+        plt.title(f"{side.name} at Maturity {maturity}")
         plt.ylabel("option values")
         plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[side.name], "b", label="market")
         plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[OptionDataColumn.MODEL], "ro", label="model")

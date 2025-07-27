@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 from scipy.integrate import quad
 from scipy.optimize import fmin
 
-from erdqlib.src.common.option import OptionSide, OptionType, OptionDataColumn
+from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.ft.calibrator import FtiCalibrator, FtMethod, MIN_MSE
 from erdqlib.src.mc.gbm import GbmDynamicsParameters
 from erdqlib.src.util.data_loader import load_option_data

@@ -2,7 +2,7 @@ from typing import Optional
 
 import numpy as np
 
-from erdqlib.scripts.sm_bcc import BCC_eur_option_value_lewis, BCCParameters
+from erdqlib.src.ft.bcc import BCCParameters, BccFtiCalibrator
 from erdqlib.src.common.option import OptionSide
 from erdqlib.src.ft.bates import BatesFtiCalibrator
 from erdqlib.tool.logger_util import create_logger
@@ -16,7 +16,7 @@ def compare_calculated_eur_option_price_on_bcc_via_lewis(
 ):
     """Example usage of BCC pricing for European put option"""
     x0, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton = model_params.get_pricing_params(apply_shortrate=True)
-    px_option_bcc: float = BCC_eur_option_value_lewis(
+    px_option_bcc: float = BccFtiCalibrator.calculate_option_price_lewis(
         x0=x0, T=T, r=r, kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston,
         rho_heston=rho_heston, v0_heston=v0_heston, lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
         K=K, side=side
@@ -219,7 +219,7 @@ def test_compare_eur_option_price_on_bcc_and_bates_via_lewis():
     LOGGER.info(f"{side} value under Bates: {px_bates}")
 
     x0, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton = bcc_params.get_pricing_params(apply_shortrate=True)
-    px_bcc: float = BCC_eur_option_value_lewis(
+    px_bcc: float = BccFtiCalibrator.calculate_option_price_lewis(
         x0=x0, T=T, r=r,
         kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston,
         v0_heston=v0_heston,

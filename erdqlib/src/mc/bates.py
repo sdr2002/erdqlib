@@ -205,7 +205,6 @@ class Bates(Heston):
         cj = np.random.poisson(poisson_interval_intensity, (model_params.M + 1, model_params.I))
         if len(np.where(cj > 0)[0]) == 0:
             LOGGER.warning('  No jump generated')
-
         return random_normal_arr, covariance_cholesky_lower_arr, zj, cj
 
 

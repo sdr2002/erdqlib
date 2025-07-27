@@ -12,7 +12,7 @@ LOGGER = create_logger(__name__)
 def load_option_data(
         path_str: str,
         S0: float,
-        r_provider: Callable[[Any], float],
+        r_provider: Callable[[Any], float] = None,
         strike_tol: Optional[float] = 0.02,
         n_bdays_per_year: float = 365.0,
         days_to_maturity_target: Optional[int] = None
@@ -47,6 +47,10 @@ def load_option_data(
             raise ValueError(f"No options found with {days_to_maturity_target} days to maturity.")
 
     df_options[OptionDataColumn.TENOR] = df_options[OptionDataColumn.DAYSTOMATURITY] / n_bdays_per_year
-    df_options[OptionDataColumn.RATE] = df_options.apply(lambda row: r_provider(row[OptionDataColumn.TENOR]), axis=1)
+    if r_provider:
+        df_options[OptionDataColumn.RATE] = df_options.apply(
+            func=lambda row: r_provider(row[OptionDataColumn.TENOR]),
+            axis=1
+        )
 
-    return df_options
+    return df_options.reset_index(drop=True)

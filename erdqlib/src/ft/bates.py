@@ -7,7 +7,7 @@ from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
-from erdqlib.src.ft.calibrator import FtiCalibrator, plot_calibration_result, FtMethod
+from erdqlib.src.ft.calibrator import FtiCalibrator, plot_calibration_result, FtMethod, MIN_MSE
 from erdqlib.src.ft.heston import HestonFtiCalibrator
 from erdqlib.src.ft.jump import JumpFtiCalibrator
 from erdqlib.src.mc.bates import BatesDynamicsParameters
@@ -200,12 +200,13 @@ class BatesFtiCalibrator(FtiCalibrator):
             ft_method: FtMethod = FtMethod.LEWIS,
             print_iter: Optional[List[int]] = None,
             min_MSE: Optional[List[float]] = None,
-            opt1: Optional[np.ndarray] = None
+            initial_params: Optional[np.ndarray] = None
     ) -> float:
         """Error function for Bates (1996) model calibration."""
         lambd, mu, delta = task_params  # type: float, float, float
-        if lambd < 0.0 or mu < -0.6 or mu > 0.0 or delta < 0.0:
-            return 5000.0
+        if JumpOnlyDynamicsParameters.do_parameters_offbound(lambd=lambd, mu=mu, delta=delta):
+            return MIN_MSE
+
         se = []
         for _, option in df_options.iterrows():
             model_value = BatesFtiCalibrator.calculate_option_price(
@@ -232,8 +233,8 @@ class BatesFtiCalibrator(FtiCalibrator):
             if print_iter[0] % 25 == 0:
                 LOGGER.info(f"{print_iter[0]} | [{', '.join(f'{x:.2f}' for x in task_params)}] | {MSE:7.3g} | {min_MSE[0]:7.3g}")
             print_iter[0] += 1
-        if opt1 is not None:
-            penalty = np.sqrt(np.sum((task_params - opt1) ** 2)) * 1
+        if initial_params is not None:
+            penalty = np.sqrt(np.sum((task_params - initial_params) ** 2)) * 1
             return MSE + penalty
         return MSE
 
@@ -325,7 +326,12 @@ class BatesFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calibrate_full(
-            df_options: pd.DataFrame, S0: float, r:float, initial_params: BatesDynamicsParameters, side: OptionSide
+            df_options: pd.DataFrame,
+            S0: float,
+            r:float,
+            initial_params: BatesDynamicsParameters,
+            side: OptionSide,
+            ft_method: FtMethod = FtMethod.LEWIS
     ) -> BatesDynamicsParameters:
         """Calibrates all Bates (1996) model parameters to market prices."""
         print_iter = [0]
@@ -334,7 +340,8 @@ class BatesFtiCalibrator(FtiCalibrator):
         LOGGER.info("fmin optimization begins")
         opt: np.ndarray = fmin(
             lambda p: BatesFtiCalibrator.calculate_error_full(
-                p0=p, options=df_options, s0=S0, print_iter=print_iter, min_MSE=min_MSE, side=side
+                p0=p, options=df_options, s0=S0,
+                print_iter=print_iter, min_MSE=min_MSE, side=side, ft_method=ft_method
             ),
             np.array(initial_params.get_values()),
             xtol=1e-7, ftol=1e-7, maxiter=500, maxfun=700,
@@ -381,8 +388,8 @@ class BatesFtiCalibrator(FtiCalibrator):
             h_params=h_params, j_params=jump_params
         )
         if not skip_plot:
-            plot_Bates_short(
-                df_options=df_options,
+            plot_calibration_result(
+                df_options=df_options.copy(),
                 model_values=BatesFtiCalibrator.calculate_option_price_batch(
                     df_options, S0, *initial_bates_params.get_values(),
                     side=side, ft_method=ft_method
@@ -396,48 +403,11 @@ class BatesFtiCalibrator(FtiCalibrator):
             S0=S0,
             r=r,
             initial_params=initial_bates_params,
-            side=side
+            side=side,
+            ft_method=ft_method
         )
 
         return bates_params.get_bounded_parameters()
-
-
-def plot_Bates_short(df_options: pd.DataFrame, model_values: np.array, side: OptionSide):
-    """Plot market and model prices for each maturity and OptionSide."""
-    df_options = df_options.copy()
-    df_options[OptionDataColumn.MODEL] = model_values
-    for maturity, df_options_per_maturity in df_options.groupby(OptionDataColumn.DAYSTOMATURITY):
-        plt.figure(figsize=(8, 6))
-        plt.subplot(211)
-        plt.grid()
-        plt.title(f"(Short-calib) {side.name} Maturity {maturity}")
-        plt.ylabel("option values")
-        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[side.name], "b", label="market")
-        plt.plot(df_options_per_maturity[OptionDataColumn.STRIKE], df_options_per_maturity[OptionDataColumn.MODEL], "ro", label="model")
-        plt.legend(loc=0)
-        axis1 = [
-            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
-            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
-            min(df_options_per_maturity[side.name]) - 10,
-            max(df_options_per_maturity[side.name]) + 10,
-        ]
-        plt.axis(axis1) # type: ignore
-
-        plt.subplot(212)
-        plt.grid()
-        wi = 5.0
-        diffs = df_options_per_maturity[OptionDataColumn.MODEL].values - df_options_per_maturity[side.name].values
-        plt.bar(df_options_per_maturity[OptionDataColumn.STRIKE].values - wi / 2, diffs, width=wi)
-        plt.ylabel("difference")
-        axis2 = [
-            min(df_options_per_maturity[OptionDataColumn.STRIKE]) - 10,
-            max(df_options_per_maturity[OptionDataColumn.STRIKE]) + 10,
-            min(diffs) * 1.1,
-            max(diffs) * 1.1,
-        ]
-        plt.axis(axis2)  # type: ignore
-        plt.tight_layout()
-        plt.show()
 
 
 def get_calibrated_heston_params(h_params_path: str, S0: float, r: float) -> HestonDynamicsParameters:

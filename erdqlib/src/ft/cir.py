@@ -14,6 +14,7 @@ from erdqlib.tool.path import get_path_from_package
 LOGGER = create_logger(__name__)
 MIN_MSE = 1.0
 
+
 class CirCalibrator:
     """Short rate model calibration for CIR (1985) model"""
     @staticmethod
@@ -159,7 +160,7 @@ def ex_calibration(
     )
     LOGGER.info(f"Rates:\n{euribor_df.to_markdown(index=False)}")
 
-    maturities: np.ndarray = euribor_df[OptionDataColumn.MATURITY].values  # Maturities in years with 30/360 convention
+    maturities: np.ndarray = euribor_df[OptionDataColumn.TENOR].values  # Maturities in years with 30/360 convention
     euribors: np.ndarray = euribor_df[OptionDataColumn.RATE].values  # Euribor rates in rate unit
 
     # Interpolation and Forward rates via Cubic spline
