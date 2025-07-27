@@ -6,9 +6,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 import scipy.stats as ss
 
+from erdqlib.src.common.option import OptionInfo, OptionType, OptionSide
 from erdqlib.src.common.rate import implied_yield
 from erdqlib.src.mc.bates import BatesDynamicsParameters, BatesParameters, Bates
 from erdqlib.src.mc.cir import CirDynamicsParameters, CirParameters, B, Cir
+from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.src.mc.jump import MertonJump
 from erdqlib.tool.logger_util import create_logger
 
@@ -164,7 +166,7 @@ class BCC(Bates):
         if var_paths is None:
             raise ValueError("Variance array must be provided as an argument to plot_paths for Heston.")
 
-        fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(14, 8))
+        fig, axs = plt.subplots(nrows=2, ncols=3, figsize=(18, 8))
 
         # Underlying price paths
         ax_0_0 = axs[0, 0]
@@ -180,13 +182,13 @@ class BCC(Bates):
         q5 = np.quantile(r_last, 0.05)
         ax_1_0.hist(
             r_last, density=True, bins=500,
-            label=f"{model_name} (q1={np.quantile(r_last, 0.01):.3g}, q5={q5:.3g},"
+            label=f"{model_name} q5={q5:.3g},"
                   f" sk={ss.skew(r_last):.3g}, kt={ss.kurtosis(r_last):.3g})"
         )
         ax_1_0.axvline(x=q5, color='black', linestyle='--')
-        x_logr = np.linspace(r_last.min(), r_last.max(), 500)
+        x_r = np.linspace(r_last.min(), r_last.max(), 500)
         ax_1_0.plot(
-            x_logr, ss.norm.pdf(x_logr, r_last.mean(), r_last.std()),
+            x_r, ss.norm.pdf(x_r, r_last.mean(), r_last.std()),
             color="r", label=f"Normal density (mu={r_last.mean():.2g}, std={r_last.std():.2g})"
         )
         ax_1_0.set_xlabel('Log return')
@@ -230,13 +232,13 @@ class BCC(Bates):
         q5 = np.quantile(r_last, 0.05)
         ax_1_2.hist(
             r_last, density=True, bins=500,
-            label=f"{model_name} (q1={np.quantile(r_last, 0.01):.3g}, q5={q5:.3g},"
+            label=f"{model_name} q5={q5:.3g},"
                   f" sk={ss.skew(r_last):.3g}, kt={ss.kurtosis(r_last):.3g})"
         )
-        ax_1_2.axvline(x=q5, color='black', linestyle='--')
-        x_logr = np.linspace(r_last.min(), r_last.max(), 500)
+        # ax_1_2.axvline(x=model_params.r, color='black', linestyle='--', label='r0')
+        x_r = np.linspace(r_last.min(), r_last.max(), 500)
         ax_1_2.plot(
-            x_logr, ss.norm.pdf(x_logr, r_last.mean(), r_last.std()),
+            x_r, ss.norm.pdf(x_r, r_last.mean(), r_last.std()),
             color="r", label=f"Normal density (mu={r_last.mean():.2g}, std={r_last.std():.2g})"
         )
         ax_1_2.set_xlabel('Rate')
@@ -246,28 +248,26 @@ class BCC(Bates):
 
 
 def example_bcc():
+    # r for BCC works as the r0 for short-rate dynamics
     bcc_params: BCCParameters = BCCParameters(
-        x0=3225.93,
-        r=-0.000320836,  # r for BCC works as the r0 for short-rate dynamics
         T=1.0,
-
         M=250,  # type: ignore
         I=100_000,  # type: ignore
-        random_seed=2025,  # type: ignore
+        random_seed=0,  # type: ignore
         **{
-            "kappa_cir": 0.376324,
-            "theta_cir": 0.0448895,
-            "sigma_cir": 0.18381,
-
-            "kappa_heston": 12.7598,
-            "theta_heston": 0.0264996,
-            "sigma_heston": 0.772696,
-            "rho_heston": -0.978924,
-            "v0_heston": 0.0327495,
-
-            "lambd_merton": 2.22897e-06,
-            "mu_merton": -3.62178e-08,
-            "delta_merton": 8.26814e-11,
+            "x0": 3225.93,
+            "r": -0.0002943493765991875,
+            "lambd_merton": 8.463250888577545e-07,
+            "mu_merton": -9.449456757062437e-06,
+            "delta_merton": 9.821793189744765e-07,
+            "kappa_heston": 2.412006106350429,
+            "theta_heston": 0.022478722375727497,
+            "sigma_heston": 0.32821891480428733,
+            "rho_heston": -0.6712549317699577,
+            "v0_heston": 0.030392880298239243,
+            "kappa_cir": 0.603708218317528,
+            "theta_cir": 0.03120714567592455,
+            "sigma_cir": 0.19411341500935292
         }
     )
 
@@ -279,18 +279,16 @@ def example_bcc():
         model_name=BCC.__name__
     )
 
-    pass
-
-    # o_price: float = price_montecarlo(
-    #     underlying_path=x_arr,
-    #     d=bcc_params,
-    #     o=OptionInfo(
-    #         o_type=OptionType.ASIAN,
-    #         K=bcc_params.x0 * 0.95,  # strike price
-    #         side=OptionSide.PUT,
-    #     )
-    # )
-    # LOGGER.info(f"Asian option price: {o_price}")
+    o_price: float = price_montecarlo(
+        underlying_path=x_arr,
+        d=bcc_params,
+        o=OptionInfo(
+            o_type=OptionType.ASIAN,
+            K=bcc_params.x0 * 0.95,  # strike price
+            side=OptionSide.PUT,
+        )
+    )
+    LOGGER.info(f"Asian PUT option price: {o_price}")
 
 
 if __name__ == "__main__":

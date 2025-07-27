@@ -98,7 +98,7 @@ class Cir(MonteCarlo):
 
     @staticmethod
     def sample_paths(
-        c_params: CirParameters, sampling_method: str = "exact"
+        c_params: CirParameters, sampling_method: str = "euler"
     ) -> np.ndarray:
         """Cox-Ingersoll-Ross process paths sampler
         dX_t = k * (theta - X_t) * dt + sigma * sqrt(X_t) * dW_t
