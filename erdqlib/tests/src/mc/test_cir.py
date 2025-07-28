@@ -38,24 +38,24 @@ def test_cir_eur_option_price(cir_params):
     s_paths: np.ndarray = Cir.calculate_paths(cir_params)
     call_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=cir_params,
-        o=OptionInfo(
+        model_params=cir_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=0.02, side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     )
 
     put_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=cir_params,
-        o=OptionInfo(
+        model_params=cir_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=0.04, side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )
 
-    expected_call_price: float = 0.006326179843270637
+    expected_call_price: float = 0.006396810385228595
     np.testing.assert_approx_equal(call_price, expected_call_price, significant=4)
 
-    expected_put_price: float = 0.013653830153396865
+    expected_put_price: float = 0.013583199611438907
     np.testing.assert_approx_equal(put_price, expected_put_price, significant=4)

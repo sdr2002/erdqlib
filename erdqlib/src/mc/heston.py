@@ -5,10 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as ss
 
-from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.mc.dynamics import MonteCarlo
-from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
@@ -251,48 +249,3 @@ class Heston(MonteCarlo):
         ax3.legend()
 
         plt.show()
-
-
-def example_heston():
-    h_params: HestonParameters = HestonParameters(
-        v0_heston=0.04,
-        kappa_heston=2,
-        sigma_heston=0.3,
-        theta_heston=0.04,
-        rho_heston=-0.9,
-
-        x0=100,  # Current underlying asset price
-        r=0.05,  # Risk-free rate
-
-        T=1,  # Number of years
-        M=500,  # Total time steps
-        I=10000,  # Number of simulations
-        random_seed=0
-    )
-
-    V, S = Heston.calculate_paths(h_params)
-    Heston.plot_paths(
-        n=300, paths={'x': S, 'var': V}, model_params=h_params, model_name=Heston.__name__
-    )
-
-    LOGGER.info(f"EUR CALL: {price_montecarlo(
-        underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
-            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
-        ),
-        t=0.
-    )}")
-
-    LOGGER.info(f"EUR PUT: {price_montecarlo(
-        underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
-            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
-        ),
-        t=0.
-    )}")
-
-
-if __name__ == "__main__":
-    example_heston()

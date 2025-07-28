@@ -50,20 +50,20 @@ def test_bates_eur_option_price(bates_params):
     var_paths, s_paths = Bates.calculate_paths(bates_params)  # type: np.ndarray, np.ndarray
     call_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=bates_params,
-        o=OptionInfo(
+        model_params=bates_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=22., side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     )
 
     put_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=bates_params,
-        o=OptionInfo(
+        model_params=bates_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=22., side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )
 
     expected_call_price: float = 5.034410794188844e-05

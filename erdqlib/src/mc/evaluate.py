@@ -17,41 +17,43 @@ LOGGER = create_logger(__name__)
 
 
 def price_montecarlo(
-        underlying_path: np.ndarray, d: ModelParameters, o: OptionInfo,
-        t: float = 0., verbose: bool = False
+        underlying_path: np.ndarray, model_params: ModelParameters, o_info: OptionInfo,
+        t_i: float = 0., verbose: bool = False
 ) -> float:
-    LOGGER.info(o.__dict__)
-    assert isinstance(o.side, OptionSide)
+    """Calculate the price of an option from the Monte Carlo sampled underlying paths"""
+    assert isinstance(o_info.side, OptionSide)
 
+    r_T: float = model_params.get_r_at_t(t=model_params.T)
     payoff: np.ndarray
-    match o.o_type:
+    match o_info.o_type:
         case OptionType.EUROPEAN:
-            if o.side == OptionSide.CALL:
-                payoff = np.maximum(0, underlying_path[-1, :] - o.K)
+            if o_info.side == OptionSide.CALL:
+                payoff = np.maximum(0, underlying_path[-1, :] - o_info.K)
             else:
-                payoff = np.maximum(0, - underlying_path[-1, :] + o.K)
+                payoff = np.maximum(0, - underlying_path[-1, :] + o_info.K)
         case OptionType.DOWNANDIN:
-            o = cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
-            # Down-and-In payoff:
-            #   Payoff = European payoff * 1_{min S_path <= barrier}
-            #   payoff = max(S_T - K, 0) * 1_{min S_t ≤ B}  for calls,
-            #          = max(K - S_T, 0) * 1_{min S_t ≤ B}  for puts.
-            # Compute the indicator of barrier breach:
-            assert type(o) is BarrierOptionInfo
-            knock_in = (underlying_path.min(axis=0) <= o.barrier)
-            if o.side == OptionSide.CALL:
-                euro_payoff = np.maximum(0, underlying_path[-1, :] - o.K)
+            o_info = cast(BarrierOptionInfo, o_info)  # ensure o is BarrierOptionInfo
+            """Down-and-In payoff:
+            Payoff = European payoff * 1_{min S_path <= barrier}
+            payoff = max(S_T - K, 0) * 1_{min S_t ≤ B}  for calls,
+                 = max(K - S_T, 0) * 1_{min S_t ≤ B}  for puts.
+            """
+            # Compute the indicator of barrier breach
+            assert type(o_info) is BarrierOptionInfo
+            knock_in = (underlying_path.min(axis=0) <= o_info.barrier)
+            if o_info.side == OptionSide.CALL:
+                euro_payoff = np.maximum(0, underlying_path[-1, :] - o_info.K)
             else:
-                euro_payoff = np.maximum(0, o.K - underlying_path[-1, :])
+                euro_payoff = np.maximum(0, o_info.K - underlying_path[-1, :])
             payoff = euro_payoff * knock_in
         case OptionType.UPANDIN:
-            o = cast(BarrierOptionInfo, o)  # ensure o is BarrierOptionInfo
-            assert type(o) is BarrierOptionInfo
-            knock_in = (underlying_path.max(axis=0) >= o.barrier)
-            if o.side == OptionSide.CALL:
-                euro_payoff = np.maximum(0, underlying_path[-1, :] - o.K)
+            o_info = cast(BarrierOptionInfo, o_info)  # ensure o is BarrierOptionInfo
+            assert type(o_info) is BarrierOptionInfo
+            knock_in = (underlying_path.max(axis=0) >= o_info.barrier)
+            if o_info.side == OptionSide.CALL:
+                euro_payoff = np.maximum(0, underlying_path[-1, :] - o_info.K)
             else:
-                euro_payoff = np.maximum(0, o.K - underlying_path[-1, :])
+                euro_payoff = np.maximum(0, o_info.K - underlying_path[-1, :])
             payoff = euro_payoff * knock_in
         case OptionType.AMERICAN:
             """Least-Squares Monte Carlo for American options, regressing continuation from the *next*‐timestep values.
@@ -84,29 +86,29 @@ def price_montecarlo(
             Only ITM paths enter the regression, since only there
             π_t and C_t compete in the exercise decision.
             """
-            dt = (d.T - t) / d.M
-            disc = np.exp(-d.r * dt)
+            dt = (model_params.T - t_i) / model_params.M
 
             # 1) Initialize cashflows at maturity:
-            if o.side == OptionSide.CALL:
-                cf = np.maximum(underlying_path[-1, :] - o.K, 0)
+            if o_info.side == OptionSide.CALL:
+                cf = np.maximum(underlying_path[-1, :] - o_info.K, 0)
             else:
-                cf = np.maximum(o.K - underlying_path[-1, :], 0)
+                cf = np.maximum(o_info.K - underlying_path[-1, :], 0)
 
             # 2) Step backwards through t = M-1, ..., 1
             r2_list: List[float] = []
             if verbose:
                 np.set_printoptions(formatter={'float': lambda x: "{0:0.3g}".format(x)})  # type: ignore
-            for ti in range(d.M, 0, -1):
+            for ti in range(model_params.M, 0, -1):
                 # discount next‐step cashflow back to time ti
-                cf *= disc
+                # TODO is this a proper way to discount in BCC?
+                cf *= np.exp(-model_params.get_r_at_t(t=ti * dt) * dt)
 
                 St = underlying_path[ti]
                 # immediate payoff if exercised at ti:
-                if o.side == OptionSide.CALL:
-                    intrinsic = np.maximum(St - o.K, 0)
+                if o_info.side == OptionSide.CALL:
+                    intrinsic = np.maximum(St - o_info.K, 0)
                 else:
-                    intrinsic = np.maximum(o.K - St, 0)
+                    intrinsic = np.maximum(o_info.K - St, 0)
 
                 # only regress on in‐the‐money paths
                 itm = intrinsic > 0
@@ -115,11 +117,11 @@ def price_montecarlo(
                     # Basis: [1, x, x^2, ..., x^degree] then apply np.linalg.lstsq, then weights__ @ basis__
                     with warnings.catch_warnings(record=True) as w:
                         warnings.simplefilter("always", np.exceptions.RankWarning)
-                        res: Polynomial = Polynomial.fit(
+                        res = Polynomial.fit(
                             x=St[itm],
                             y=cf[itm],
                             deg=min(sum(itm)-1, 2) # degree of polynomial + 1 (bias dim) must be leq number of points
-                        )  # .convert()
+                        )
 
                     # evaluate the fitted polynomial for continuation
                     continuation = res(St[itm])
@@ -146,14 +148,14 @@ def price_montecarlo(
             # 3) After backward induction, CF is already discounted to time t
             return cf.mean()
         case OptionType.ASIAN:
-            if o.side == OptionSide.CALL:
-                payoff = np.maximum(0, np.mean(underlying_path,axis=0) - o.K)
+            if o_info.side == OptionSide.CALL:
+                payoff = np.maximum(0, np.mean(underlying_path,axis=0) - o_info.K)
             else:
-                payoff = np.maximum(0, - np.mean(underlying_path,axis=0) + o.K)
+                payoff = np.maximum(0, - np.mean(underlying_path,axis=0) + o_info.K)
         case _:
-            raise TypeError(f"Unknown option type: {o.type}")
+            raise TypeError(f"Unknown option type: {o_info.o_type}")
 
-    discount: float = np.exp(-d.r * (d.T - t))
+    discount: float = np.exp(-r_T * (model_params.T - t_i))
     average_payoff: float = float(np.mean(payoff))
     return discount * average_payoff
 
@@ -183,11 +185,11 @@ def calculate_delta(
 
         option_price: float = price_montecarlo(
             underlying_path=s_arr2d,
-            d=model_params,
-            o=OptionInfo(
+            model_params=model_params,
+            o_info=OptionInfo(
                 o_type=option_type, K=strike, side=side
             ),
-            t=0.
+            t_i=0.
         )
 
         perturb_dict[bumped_s0] = option_price

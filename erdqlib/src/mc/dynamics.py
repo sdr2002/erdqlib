@@ -91,7 +91,15 @@ class DynamicsParameters:
 
 @dataclass
 class ModelParameters(SamplingParameters, DynamicsParameters):
-    pass
+
+    def get_r_at_t(self, *_, **__) -> float:
+        """
+        Get the risk-free rate at expiry.
+        If r is None, return 0.0.
+        """
+        if self.r is None:
+            raise ValueError("Risk-free rate (r) is not set.")
+        return self.r
 
 
 class MonteCarlo(ABC):

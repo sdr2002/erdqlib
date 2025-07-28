@@ -52,25 +52,3 @@ class Vasicek(MonteCarlo):
 
         x_arr2d: np.ndarray = Vasicek.sample_paths(model_params, z_arr2d)
         return x_arr2d
-
-
-def example_vasicek():
-    v_params: VasicekParameters = VasicekParameters(
-        T=1.0,  # Maturity
-        M=500,  # Number of paths for MC
-        I=10_000,  # Number of steps
-        random_seed=0,
-
-        x0=0.023,
-        kappa_vasicek=0.20,
-        theta_vasicek=0.01,
-        sigma_vasicek=0.0012,
-        r=None,  # Risk-free rate
-    )
-
-    rates = Vasicek.calculate_paths(v_params)
-    Vasicek.plot_paths(n=300, paths={'x': rates}, model_params=v_params, model_name=Vasicek.__name__, logy=False)
-
-
-if __name__ == "__main__":
-    example_vasicek()

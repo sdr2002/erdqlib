@@ -61,8 +61,8 @@ def test_bcc_asian_option_price(bcc_params):
 
     put_eur_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=bcc_params,
-        o=OptionInfo(
+        model_params=bcc_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN,
             K=22.,  # strike price
             side=OptionSide.PUT,
@@ -74,8 +74,8 @@ def test_bcc_asian_option_price(bcc_params):
 
     put_asian_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=bcc_params,
-        o=OptionInfo(
+        model_params=bcc_params,
+        o_info=OptionInfo(
             o_type= OptionType.ASIAN,
             K=22.,  # strike price
             side=OptionSide.PUT,

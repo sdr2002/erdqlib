@@ -3,14 +3,12 @@ from dataclasses import dataclass
 from typing import Optional, Tuple, List, Dict
 
 import numpy as np
-from matplotlib import pyplot as plt
 import scipy.stats as ss
+from matplotlib import pyplot as plt
 
-from erdqlib.src.common.option import OptionInfo, OptionType, OptionSide
 from erdqlib.src.common.rate import implied_yield
 from erdqlib.src.mc.bates import BatesDynamicsParameters, BatesParameters, Bates
 from erdqlib.src.mc.cir import CirDynamicsParameters, CirParameters, B, Cir
-from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.src.mc.jump import MertonJump
 from erdqlib.tool.logger_util import create_logger
 
@@ -70,15 +68,6 @@ class BCCParameters(BatesParameters, CirParameters):
             self.lambd_merton, self.mu_merton, self.delta_merton  # Merton
         ]
 
-    def to_bates_params(self) -> BatesParameters:
-        return BatesParameters(
-            x0=self.x0,
-            r=implied_yield(t_year=self.T, price_0_t=B(self.get_B_params())),
-            kappa_heston=self.kappa_heston, theta_heston=self.theta_heston, sigma_heston=self.sigma_heston, rho_heston=self.rho_heston, v0_heston=self.v0_heston,
-            lambd_merton=self.lambd_merton, mu_merton=self.mu_merton, delta_merton=self.delta_merton,
-            T=self.T, M=self.M, I=self.I, random_seed=self.random_seed
-        )
-
     def to_cir_parameters(self) -> CirParameters:
         """Short-rates dynamics parameters: r=None becuase there's no risk-free drift for the short-rate"""
         return CirParameters(
@@ -86,6 +75,13 @@ class BCCParameters(BatesParameters, CirParameters):
             kappa_cir=self.kappa_cir, theta_cir=self.theta_cir, sigma_cir=self.sigma_cir,
             T=self.T, M=self.M, I=self.I, random_seed=self.random_seed
         )
+
+    def get_implied_yield(self, t_year: float) -> float:
+        """Get implied yield for the B function"""
+        return implied_yield(t_year=t_year, price_0_t=B(self.get_B_params()))
+
+    def get_r_at_t(self, t: float) -> float:
+        return self.get_implied_yield(t_year=t)
 
 
 class BCC(Bates):
@@ -245,51 +241,3 @@ class BCC(Bates):
         ax_1_2.legend()
 
         plt.show()
-
-
-def example_bcc():
-    # r for BCC works as the r0 for short-rate dynamics
-    bcc_params: BCCParameters = BCCParameters(
-        T=1.0,
-        M=250,  # type: ignore
-        I=100_000,  # type: ignore
-        random_seed=0,  # type: ignore
-        **{
-            "x0": 3225.93,
-            "r": -0.0002943493765991875,
-            "lambd_merton": 8.463250888577545e-07,
-            "mu_merton": -9.449456757062437e-06,
-            "delta_merton": 9.821793189744765e-07,
-            "kappa_heston": 2.412006106350429,
-            "theta_heston": 0.022478722375727497,
-            "sigma_heston": 0.32821891480428733,
-            "rho_heston": -0.6712549317699577,
-            "v0_heston": 0.030392880298239243,
-            "kappa_cir": 0.603708218317528,
-            "theta_cir": 0.03120714567592455,
-            "sigma_cir": 0.19411341500935292
-        }
-    )
-
-    r_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
-    BCC.plot_paths(
-        n=500,
-        paths={'x': x_arr, 'var': v_arr, 'r': r_arr},
-        model_params=bcc_params,
-        model_name=BCC.__name__
-    )
-
-    o_price: float = price_montecarlo(
-        underlying_path=x_arr,
-        d=bcc_params,
-        o=OptionInfo(
-            o_type=OptionType.ASIAN,
-            K=bcc_params.x0 * 0.95,  # strike price
-            side=OptionSide.PUT,
-        )
-    )
-    LOGGER.info(f"Asian PUT option price: {o_price}")
-
-
-if __name__ == "__main__":
-    example_bcc()

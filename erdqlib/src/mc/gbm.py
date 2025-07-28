@@ -3,10 +3,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.mc.dynamics import MonteCarlo
-from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
@@ -68,42 +66,3 @@ class Gbm(MonteCarlo):
         z_arr2d = MonteCarlo.generate_random_numbers(model_params=model_params)
         x_arr2d: np.ndarray = Gbm.sample_paths(model_params, z_arr2d)
         return x_arr2d
-
-
-def example_gbm():
-    g_params: GbmParameters = GbmParameters(
-        sigma=0.2,
-
-        x0=100,  # Current underlying asset price
-        r=0.05,  # Risk-free rate
-
-        T=1,  # Number of years
-        M=500,  # Total time steps
-        I=10000,  # Number of simulations
-        random_seed=0
-    )
-
-    S = Gbm.calculate_paths(g_params)
-    Gbm.plot_paths(n=300, paths={'x': S}, model_params=g_params, model_name=Gbm.__name__, logy=True)
-
-    LOGGER.info(f"EUR CALL: {price_montecarlo(
-        underlying_path=S,
-        d=g_params,
-        o=OptionInfo(
-            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
-        ),
-        t=0.
-    )}")
-
-    LOGGER.info(f"EUR PUT: {price_montecarlo(
-        underlying_path=S,
-        d=g_params,
-        o=OptionInfo(
-            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
-        ),
-        t=0.
-    )}")
-
-
-if __name__ == "__main__":
-    example_gbm()

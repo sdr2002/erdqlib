@@ -41,20 +41,20 @@ def test_heston_eur_option_price(heston_params):
     var_paths, s_paths = Heston.calculate_paths(heston_params)  # type: np.ndarray, np.ndarray
     call_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=heston_params,
-        o=OptionInfo(
+        model_params=heston_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     )
 
     put_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=heston_params,
-        o=OptionInfo(
+        model_params=heston_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )
 
     expected_call_price: float = 12.790993816567376

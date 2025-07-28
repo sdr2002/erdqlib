@@ -5,9 +5,13 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
+from erdqlib.src.mc.bates import Bates, BatesParameters
+from erdqlib.src.mc.bcc import BCC, BCCParameters
 from erdqlib.src.mc.evaluate import price_montecarlo, calculate_delta, DeltaResult
+from erdqlib.src.mc.gbm import Gbm, GbmParameters
 from erdqlib.src.mc.heston import HestonParameters, Heston
 from erdqlib.src.mc.jump import JumpParameters, MertonJump
+from erdqlib.src.mc.vasicek import VasicekParameters, Vasicek
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
@@ -48,20 +52,20 @@ def q8(skip_plot: bool = True):
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
-        d=j_params,
-        o=OptionInfo(
+        model_params=j_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     ):.3g}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
         underlying_path=S,
-        d=j_params,
-        o=OptionInfo(
+        model_params=j_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     ):.3g}")
 
 
@@ -86,20 +90,20 @@ def q9(skip_plot: bool = True):
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
-        d=j_params,
-        o=OptionInfo(
+        model_params=j_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     ):.3g}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
         underlying_path=S,
-        d=j_params,
-        o=OptionInfo(
+        model_params=j_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     ):.3g}")
 
 
@@ -237,9 +241,9 @@ def _q15(S0: float, side: OptionSide, skip_plot: bool = True):
 
         option_price: float = price_montecarlo(
             underlying_path=S,
-            d=j_params,
-            o=o_info,
-            t=0.
+            model_params=j_params,
+            o_info=o_info,
+            t_i=0.
         )
         LOGGER.info(f"{o_type} {side}: {option_price:.3g}")
 
@@ -284,20 +288,20 @@ def q5(skip_plot: bool = True):
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
+        model_params=h_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     )}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
         underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
+        model_params=h_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )}")
 
 
@@ -325,20 +329,20 @@ def q6(skip_plot: bool = True):
 
     LOGGER.info(f"EUR CALL: {price_montecarlo(
         underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
+        model_params=h_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     )}")
 
     LOGGER.info(f"EUR PUT: {price_montecarlo(
         underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
+        model_params=h_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )}")
 
 
@@ -449,21 +453,21 @@ price the put). Comment on the differences you observe from original Questions
 
     LOGGER.info(f"AMR CALL: {price_montecarlo(
         underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
+        model_params=h_params,
+        o_info=OptionInfo(
             o_type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.CALL
         ),
-        t=0.,
+        t_i=0.,
         verbose=True
     )}")
 
     LOGGER.info(f"AMR PUT: {price_montecarlo(
         underlying_path=S,
-        d=h_params,
-        o=OptionInfo(
+        model_params=h_params,
+        o_info=OptionInfo(
             o_type=OptionType.AMERICAN, K=COMMON_PARAMS['S0'], side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )}")
 
 
@@ -561,9 +565,9 @@ def _q14(S0: float, skip_plot: bool = True):
 
             option_price: float = price_montecarlo(
                 underlying_path=S,
-                d=h_params,
-                o=o_info,
-                t=0.
+                model_params=h_params,
+                o_info=o_info,
+                t_i=0.
             )
             LOGGER.info(f"{o_type} CALL: {option_price:.3g}")
 
@@ -580,6 +584,228 @@ def _q14(S0: float, skip_plot: bool = True):
 def q14(skip_plot=True):
     _q14(S0=80., skip_plot=skip_plot)
     _q14(S0=65., skip_plot=skip_plot)
+
+
+def example_gbm():
+    g_params: GbmParameters = GbmParameters(
+        sigma=0.2,
+
+        x0=100,  # Current underlying asset price
+        r=0.05,  # Risk-free rate
+
+        T=1,  # Number of years
+        M=500,  # Total time steps
+        I=10000,  # Number of simulations
+        random_seed=0
+    )
+
+    S = Gbm.calculate_paths(g_params)
+    Gbm.plot_paths(n=300, paths={'x': S}, model_params=g_params, model_name=Gbm.__name__, logy=True)
+
+    LOGGER.info(f"EUR CALL: {price_montecarlo(
+        underlying_path=S,
+        model_params=g_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+        ),
+        t_i=0.
+    )}")
+
+    LOGGER.info(f"EUR PUT: {price_montecarlo(
+        underlying_path=S,
+        model_params=g_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+        ),
+        t_i=0.
+    )}")
+
+
+def example_heston():
+    h_params: HestonParameters = HestonParameters(
+        v0_heston=0.04,
+        kappa_heston=2,
+        sigma_heston=0.3,
+        theta_heston=0.04,
+        rho_heston=-0.9,
+
+        x0=100,  # Current underlying asset price
+        r=0.05,  # Risk-free rate
+
+        T=1,  # Number of years
+        M=500,  # Total time steps
+        I=10000,  # Number of simulations
+        random_seed=0
+    )
+
+    V, S = Heston.calculate_paths(h_params)
+    Heston.plot_paths(
+        n=300, paths={'x': S, 'var': V}, model_params=h_params, model_name=Heston.__name__
+    )
+
+    LOGGER.info(f"EUR CALL: {price_montecarlo(
+        underlying_path=S,
+        model_params=h_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+        ),
+        t_i=0.
+    )}")
+
+    LOGGER.info(f"EUR PUT: {price_montecarlo(
+        underlying_path=S,
+        model_params=h_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+        ),
+        t_i=0.
+    )}")
+
+
+def example_jump():
+    j_params: JumpParameters = JumpParameters(
+        lambd_merton=0.75,  # Lambda of the model
+        mu_merton=0.0,  # Mu
+        delta_merton=0.25,  # Delta
+        sigma_merton=0.2,
+
+        x0=100,  # Current underlying asset price
+        r=0.05,  # Risk-free rate
+
+        T=1,  # Number of years
+        M=500,  # Total time steps
+        I=10_000,  # Number of simulations
+        random_seed=0
+    )
+
+    S = MertonJump.calculate_paths(j_params)
+    MertonJump.plot_paths(n=300, paths={'x': S}, model_params=j_params, model_name=MertonJump.__name__, logy=True)
+
+    LOGGER.info(f"EUR CALL: {price_montecarlo(
+        underlying_path=S,
+        model_params=j_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+        ),
+        t_i=0.
+    )}")
+
+    LOGGER.info(f"EUR PUT: {price_montecarlo(
+        underlying_path=S,
+        model_params=j_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+        ),
+        t_i=0.
+    )}")
+
+
+def example_bates():
+    b_params: BatesParameters = BatesParameters(
+        v0_heston=0.04,
+        kappa_heston=2,
+        sigma_heston=0.3,
+        theta_heston=0.04,
+        rho_heston=-0.9,
+
+        lambd_merton=0.75,
+        mu_merton=0.0,
+        delta_merton=0.25,
+
+        x0=100,  # Current underlying asset price
+        r=0.05,  # Risk-free rate
+
+        T=1,  # Number of years
+        M=500,  # Total time steps
+        I=10000,  # Number of simulations
+        random_seed=0
+    )
+
+    V, S = Bates.calculate_paths(b_params)
+    Bates.plot_paths(
+        n=300, paths={'x': S, 'var': V}, model_params=b_params, model_name=Bates.__name__
+    )
+
+    LOGGER.info(f"EUR CALL: {price_montecarlo(
+        underlying_path=S,
+        model_params=b_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
+        ),
+        t_i=0.
+    )}")
+
+    LOGGER.info(f"EUR PUT: {price_montecarlo(
+        underlying_path=S,
+        model_params=b_params,
+        o_info=OptionInfo(
+            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
+        ),
+        t_i=0.
+    )}")
+
+
+def example_bcc():
+    def example_bcc():
+        # r for BCC works as the r0 for short-rate dynamics
+        bcc_params: BCCParameters = BCCParameters(
+            T=1.0,
+            M=250,  # type: ignore
+            I=100_000,  # type: ignore
+            random_seed=0,  # type: ignore
+            **{
+                "x0": 3225.93,
+                "r": -0.0002943493765991875,
+                "lambd_merton": 8.463250888577545e-07,
+                "mu_merton": -9.449456757062437e-06,
+                "delta_merton": 9.821793189744765e-07,
+                "kappa_heston": 2.412006106350429,
+                "theta_heston": 0.022478722375727497,
+                "sigma_heston": 0.32821891480428733,
+                "rho_heston": -0.6712549317699577,
+                "v0_heston": 0.030392880298239243,
+                "kappa_cir": 0.603708218317528,
+                "theta_cir": 0.03120714567592455,
+                "sigma_cir": 0.19411341500935292
+            }
+        )
+
+        r_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
+        BCC.plot_paths(
+            n=500,
+            paths={'x': x_arr, 'var': v_arr, 'r': r_arr},
+            model_params=bcc_params,
+            model_name=BCC.__name__
+        )
+
+        o_price: float = price_montecarlo(
+            underlying_path=x_arr,
+            model_params=bcc_params,
+            o_info=OptionInfo(
+                o_type=OptionType.ASIAN,
+                K=bcc_params.x0 * 0.95,  # strike price
+                side=OptionSide.PUT,
+            )
+        )
+        LOGGER.info(f"Asian PUT option price: {o_price}")
+
+
+def example_vasicek():
+    v_params: VasicekParameters = VasicekParameters(
+        T=1.0,  # Maturity
+        M=500,  # Number of paths for MC
+        I=10_000,  # Number of steps
+        random_seed=0,
+
+        x0=0.023,
+        kappa_vasicek=0.20,
+        theta_vasicek=0.01,
+        sigma_vasicek=0.0012,
+        r=None,  # Risk-free rate
+    )
+
+    rates = Vasicek.calculate_paths(v_params)
+    Vasicek.plot_paths(n=300, paths={'x': rates}, model_params=v_params, model_name=Vasicek.__name__, logy=False)
 
 
 if __name__ == "__main__":
