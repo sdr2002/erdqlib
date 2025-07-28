@@ -313,7 +313,7 @@ def ex_calibration(
 
 
 if __name__ == "__main__":
-    # ex_pricing()
+    ex_pricing()
     ex_calibration(
         options_data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
         rates_data_path=get_path_from_package("erdqlib@src/ft/data/euribor_20140930.csv"),

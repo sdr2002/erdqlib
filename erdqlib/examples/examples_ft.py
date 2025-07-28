@@ -151,8 +151,8 @@ def ex_step3_b_bcc_pricing():
     for o_type in [OptionType.EUROPEAN, OptionType.ASIAN]:
         o_price: float = price_montecarlo(
             underlying_path=x_arr,
-            d=bcc_params,
-            o=OptionInfo(
+            model_params=bcc_params,
+            o_info=OptionInfo(
                 o_type=o_type,
                 K=bcc_params.x0 * 0.95,  # strike price
                 side=o_side,
@@ -194,8 +194,8 @@ def ex_step3_b_bates_pricing():
     for o_type in [OptionType.EUROPEAN, OptionType.ASIAN]:
         o_price: float = price_montecarlo(
             underlying_path=x_arr,
-            d=bates_params,
-            o=OptionInfo(
+            model_params=bates_params,
+            o_info=OptionInfo(
                 o_type=o_type,
                 K=bates_params.x0 * 0.95,  # strike price
                 side=o_side,
@@ -204,9 +204,62 @@ def ex_step3_b_bates_pricing():
         LOGGER.info(f"{o_type} {o_side} option price: {o_price}")
 
 
+def ex_compare_fti_versus_mc_bcc_european_option():
+    bcc_params = BCCParameters(
+        x0=100.,
+        r=-0.032 / 100,
+        T=1.,
+
+        # We price with FTI for this example, hence the MC configs are not needed
+        M=250,  # type: ignore
+        I=100_000,  # type: ignore
+        random_seed=3,  # type: ignore
+
+        kappa_cir=0.068,
+        theta_cir=0.207,
+        sigma_cir=0.112,
+
+        kappa_heston=0.068,
+        theta_heston=0.207,
+        sigma_heston=0.112,
+        rho_heston=-0.821,
+        v0_heston=0.035,
+
+        lambd_merton=0.008,
+        mu_merton=-0.600,
+        delta_merton=0.001,
+    )
+
+    for side in OptionSide:
+        x0, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton = bcc_params.get_pricing_params(
+            apply_shortrate=True
+        )
+        bcc_price_fti: float = BccFtiCalibrator.calculate_option_price_lewis(
+            x0=x0, T=T, r=r, K=90.,
+            kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston,
+            v0_heston=v0_heston,
+            lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+            side=side
+        )
+        LOGGER.info(f"{side} EUR Option value under BCC FTI-Lewis: {bcc_price_fti}")
+
+        r_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
+        bcc_price_mc: float = price_montecarlo(
+            underlying_path=x_arr,
+            model_params=bcc_params,
+            o_info=OptionInfo(
+                o_type=OptionType.EUROPEAN,
+                K=90.,  # strike price
+                side=side,
+            )
+        )
+        LOGGER.info(f"{side} EUR Option value under BCC MC: {bcc_price_mc}")
+
+
 if __name__ == "__main__":
-    ex_step3_a()
-    ex_step3_b()
-    ex_step3_b_bcc_calibration()
-    ex_step3_b_bcc_pricing()
-    ex_step3_b_bates_pricing()
+    # ex_step3_a()
+    # ex_step3_b()
+    # ex_step3_b_bcc_calibration()
+    # ex_step3_b_bcc_pricing()
+    # ex_step3_b_bates_pricing()
+    ex_compare_fti_versus_mc_bcc_european_option()

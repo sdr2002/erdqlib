@@ -38,20 +38,20 @@ def test_vasicek_eur_option_price(vasicek_params):
     s_paths: np.ndarray = Vasicek.calculate_paths(vasicek_params)
     call_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=vasicek_params,
-        o=OptionInfo(
+        model_params=vasicek_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=0.02, side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     )
 
     put_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=vasicek_params,
-        o=OptionInfo(
+        model_params=vasicek_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=0.04, side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )
 
     expected_call_price: float = 0.006306683189013548  # Replace with actual expected value

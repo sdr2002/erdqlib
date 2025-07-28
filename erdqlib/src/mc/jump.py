@@ -3,10 +3,8 @@ from typing import Tuple, Type, Optional
 
 import numpy as np
 
-from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType
 from erdqlib.src.mc.dynamics import ModelParameters, DynamicsParameters
 from erdqlib.src.mc.dynamics import MonteCarlo
-from erdqlib.src.mc.evaluate import price_montecarlo
 from erdqlib.tool.logger_util import create_logger
 
 LOGGER = create_logger(__name__)
@@ -208,42 +206,3 @@ class MertonJump(MonteCarlo):
         if len(np.where(cj > 0)[0]) == 0:
             LOGGER.warning('  No jump generated')
         return z1, zj, cj
-
-
-if __name__ == "__main__":
-    j_params: JumpParameters = JumpParameters(
-        lambd_merton= 0.75,  # Lambda of the model
-        mu_merton= 0.0,  # Mu
-        delta_merton= 0.25,  # Delta
-        sigma_merton= 0.2,
-
-        x0= 100,  # Current underlying asset price
-        r = 0.05,  # Risk-free rate
-
-        T = 1,  # Number of years
-        M = 500,  # Total time steps
-        I = 10_000,  # Number of simulations
-        random_seed=0
-    )
-
-    S = MertonJump.calculate_paths(j_params)
-    MertonJump.plot_paths(n=300, paths={'x': S}, model_params=j_params, model_name=MertonJump.__name__, logy=True)
-
-    LOGGER.info(f"EUR CALL: {price_montecarlo(
-        underlying_path=S,
-        d=j_params,
-        o=OptionInfo(
-            o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
-        ),
-        t=0.
-    )}")
-
-    LOGGER.info(f"EUR PUT: {price_montecarlo(
-        underlying_path=S,
-        d=j_params,
-        o=OptionInfo(
-            o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
-        ),
-        t=0.
-    )}")
-

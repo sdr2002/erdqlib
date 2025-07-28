@@ -38,20 +38,20 @@ def test_jump_eur_option_price(jump_params):
     s_paths: np.ndarray = MertonJump.calculate_paths(jump_params)
     call_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=jump_params,
-        o=OptionInfo(
+        model_params=jump_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=95., side=OptionSide.CALL
         ),
-        t=0.
+        t_i=0.
     )
 
     put_price: float = price_montecarlo(
         underlying_path=s_paths,
-        d=jump_params,
-        o=OptionInfo(
+        model_params=jump_params,
+        o_info=OptionInfo(
             o_type=OptionType.EUROPEAN, K=105., side=OptionSide.PUT
         ),
-        t=0.
+        t_i=0.
     )
 
     expected_call_price: float = 1.8476007195750768
