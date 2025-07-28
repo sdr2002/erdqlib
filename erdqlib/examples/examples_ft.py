@@ -4,7 +4,7 @@ import pandas as pd
 from erdqlib.src.common.option import OptionType, OptionSide, OptionDataColumn
 from erdqlib.src.common.rate import SplineCurve, ForwardsLadder
 from erdqlib.src.ft.bcc import BccFtiCalibrator, plot_BCC_full
-from erdqlib.src.ft.calibrator import FtMethod
+from erdqlib.src.ft.calibrator import FtMethod, FtiCalibrator
 from erdqlib.src.ft.cir import CirCalibrator, plot_calibrated_cir
 from erdqlib.src.mc.bates import BatesDynamicsParameters, BatesParameters, Bates
 from erdqlib.src.mc.bcc import BCCParameters, BCC, BccDynamicsParameters
@@ -230,15 +230,18 @@ def ex_compare_fti_versus_mc_bcc_european_option():
         delta_merton=0.001,
     )
 
+    K = 90.
     for side in OptionSide:
         x0, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton = bcc_params.get_pricing_params(
             apply_shortrate=True
         )
-        bcc_price_fti: float = BccFtiCalibrator.calculate_option_price_lewis(
-            x0=x0, T=T, r=r, K=90.,
-            kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston,
-            v0_heston=v0_heston,
-            lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+        bcc_price_fti: float = FtiCalibrator.calculate_option_price_lewis(
+            x0=x0, T=T, r=r, K=K,
+            characteristic_integral=lambda u: BccFtiCalibrator.calculate_integral_characteristic(
+                u=u, S0=x0, K=K, T=T, r=r,
+                kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston, v0_heston=v0_heston,
+                lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+            ),
             side=side
         )
         LOGGER.info(f"{side} EUR Option value under BCC FTI-Lewis: {bcc_price_fti}")

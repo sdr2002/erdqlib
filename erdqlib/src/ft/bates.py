@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Callable
 
 import numpy as np
 import pandas as pd
@@ -37,39 +37,14 @@ class BatesFtiCalibrator(FtiCalibrator):
     def calculate_integral_characteristic(
             u: float,
             S0: float, K: float, T: float, r: float,
-            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
-            lambd: float, mu: float, delta: float
+            kappa_heston: float, theta_heston: float, sigma_heston: float, rho_heston: float, v0_heston: float,
+            lambd_merton: float, mu_merton: float, delta_merton: float
     ) -> float:
         """Lewis (2001) integral for Bates (1996) characteristic function."""
         char_func_value = BatesFtiCalibrator.calculate_characteristic(
-            u - 0.5j, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta
+            u - 0.5j, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton
         )
         return (np.exp(1j * u * np.log(S0 / K)) * char_func_value).real / (u**2 + 0.25)
-
-    @staticmethod
-    def calculate_option_price_lewis(
-            x0: float, K: float, T: float, r: float,
-            kappa_heston: float, theta_heston: float, sigma_heston: float, rho_heston: float, v0_heston: float,
-            lambd_merton: float, mu_merton: float, delta_merton: float,
-            side: OptionSide
-    ) -> float:
-        """European option value in Bates (1996) model via Lewis (2001)."""
-        int_value = quad(
-            lambda u: BatesFtiCalibrator.calculate_integral_characteristic(
-                u=u, S0=x0, K=K, T=T, r=r,
-                kappa_v=kappa_heston, theta_v=theta_heston, sigma_v=sigma_heston, rho=rho_heston, v0=v0_heston,
-                lambd=lambd_merton, mu=mu_merton, delta=delta_merton
-            ),
-            0,
-            np.inf,
-            limit=250,
-        )[0]
-        call_value = max(0, x0 - np.exp(-r * T) * np.sqrt(x0 * K) / np.pi * int_value)
-        if side is OptionSide.CALL:
-            return call_value
-        elif side is OptionSide.PUT:
-            return call_value - x0 + K * np.exp(-r * T)
-        raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
     def calculate_option_price_carrmadan(
@@ -151,10 +126,14 @@ class BatesFtiCalibrator(FtiCalibrator):
         side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         if ft_method is FtMethod.LEWIS:
-            return float(BatesFtiCalibrator.calculate_option_price_lewis(
+            return float(FtiCalibrator.calculate_option_price_lewis(
                 x0=S0, K=K, T=T, r=r,
-                kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho_v, v0_heston=v0,
-                lambd_merton=lambd, mu_merton=mu, delta_merton=delta, side=side
+                characteristic_integral=lambda u: BatesFtiCalibrator.calculate_integral_characteristic(
+                    u=u, S0=S0, K=K, T=T, r=r,
+                    kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho_v, v0_heston=v0,
+                    lambd_merton=lambd, mu_merton=mu, delta_merton=delta,
+                ),
+                side=side
             ))
         elif ft_method is FtMethod.CARRMADAN:
             return float(BatesFtiCalibrator.calculate_option_price_carrmadan(

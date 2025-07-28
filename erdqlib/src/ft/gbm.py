@@ -46,29 +46,6 @@ class GbmFtiCalibrator(FtiCalibrator):
         return (phase * cf_val).real / (u ** 2 + 0.25)
 
     @staticmethod
-    def calculate_option_price_lewis(
-            S0: float, K: float, T: float, r: float, sigma: float, side: OptionSide
-    ) -> float:
-        """
-        Calculate the option price using the Lewis formula for the Geometric Brownian Motion (GBM) model.
-        This is a simplified version and does not use characteristic functions.
-        """
-        int_value = quad(
-            lambda u: GbmFtiCalibrator.calculate_integral_characteristic(
-                u=u, S0=S0, K=K, T=T, r=r, sigma=sigma
-            ),
-            0,
-            np.inf,
-            limit=250,
-        )[0]
-        call_value = max(0, S0 - np.exp(-r * T) * np.sqrt(S0 * K) / np.pi * int_value)
-        if side is OptionSide.CALL:
-            return call_value
-        elif side is OptionSide.PUT:
-            return call_value - S0 + K * np.exp(-r * T)
-        raise ValueError(f"Invalid side: {side}")
-
-    @staticmethod
     def calculate_option_price_carrmadan(
             S0: float, K: float, T: float, r: float, sigma: float, side: OptionSide
     ) -> float:
@@ -158,8 +135,13 @@ class GbmFtiCalibrator(FtiCalibrator):
             present value of European call option
         """
         if ft_method is FtMethod.LEWIS:
-            return GbmFtiCalibrator.calculate_option_price_lewis(
-                S0=S0, K=K, T=T, r=r, sigma=sigma, side=side
+            return FtiCalibrator.calculate_option_price_lewis(
+                S0=S0, K=K, T=T, r=r,
+                characteristic_integral=lambda u: GbmFtiCalibrator.calculate_integral_characteristic(
+                    u=u, S0=S0, K=K, T=T, r=r,
+                    sigma=sigma,
+                ),
+                side=side
             )
         elif ft_method is FtMethod.CARRMADAN:
             return GbmFtiCalibrator.calculate_option_price_carrmadan(
