@@ -243,6 +243,14 @@ def ex_compare_fti_versus_mc_bcc_european_option():
         )
         LOGGER.info(f"{side} EUR Option value under BCC FTI-Lewis: {bcc_price_fti}")
 
+        bcc_price_fti: float = BccFtiCalibrator.calculate_option_price_carrmadan(
+            x0=x0, T=T, r=r, K=90.,
+            kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston, v0_heston=v0_heston,
+            lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+            side=side
+        )
+        LOGGER.info(f"{side} EUR Option value under BCC FTI-CarrMadan: {bcc_price_fti}")
+
         r_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
         bcc_price_mc: float = price_montecarlo(
             underlying_path=x_arr,

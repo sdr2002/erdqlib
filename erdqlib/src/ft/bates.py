@@ -2,7 +2,6 @@ from typing import Optional, List
 
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
@@ -75,8 +74,8 @@ class BatesFtiCalibrator(FtiCalibrator):
     @staticmethod
     def calculate_option_price_carrmadan(
             x0: float, K: float, T: float, r: float,
-            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
-            lambd: float, mu: float, delta: float,
+            kappa_heston: float, theta_heston: float, sigma_heston: float, rho_heston: float, v0_heston: float,
+            lambd_merton: float, mu_merton: float, delta_merton: float,
             side: OptionSide
     ) -> float:
         """
@@ -96,7 +95,7 @@ class BatesFtiCalibrator(FtiCalibrator):
             alpha = 1.5
             v = vo - (alpha + 1) * 1j
             modcharFunc = np.exp(-r * T) * (
-                BatesFtiCalibrator.calculate_characteristic(v, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta)
+                BatesFtiCalibrator.calculate_characteristic(v, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton)
                 / (alpha**2 + alpha - vo**2 + 1j * (2 * alpha + 1) * vo)
             )
 
@@ -107,7 +106,7 @@ class BatesFtiCalibrator(FtiCalibrator):
                 1 / (1 + 1j * (vo - 1j * alpha))
                 - np.exp(r * T) / (1j * (vo - 1j * alpha))
                 - BatesFtiCalibrator.calculate_characteristic(
-                    v, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta
+                    v, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton
                 )
                 / ((vo - 1j * alpha) ** 2 - 1j * (vo - 1j * alpha))
             )
@@ -117,7 +116,7 @@ class BatesFtiCalibrator(FtiCalibrator):
                 1 / (1 + 1j * (vo + 1j * alpha))
                 - np.exp(r * T) / (1j * (vo + 1j * alpha))
                 - BatesFtiCalibrator.calculate_characteristic(
-                    v, T, r, kappa_v, theta_v, sigma_v, rho, v0, lambd, mu, delta
+                    v, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton
                 )
                 / ((vo + 1j * alpha) ** 2 - 1j * (vo + 1j * alpha))
             )
@@ -153,13 +152,15 @@ class BatesFtiCalibrator(FtiCalibrator):
     ) -> float:
         if ft_method is FtMethod.LEWIS:
             return float(BatesFtiCalibrator.calculate_option_price_lewis(
-                x0=S0, K=K, T=T, r=r, kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho_v, v0_heston=v0,
+                x0=S0, K=K, T=T, r=r,
+                kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho_v, v0_heston=v0,
                 lambd_merton=lambd, mu_merton=mu, delta_merton=delta, side=side
             ))
         elif ft_method is FtMethod.CARRMADAN:
             return float(BatesFtiCalibrator.calculate_option_price_carrmadan(
-                x0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0,
-                lambd=lambd, mu=mu, delta=delta, side=side
+                x0=S0, K=K, T=T, r=r,
+                kappa_heston=kappa_v, theta_heston=theta_v, sigma_heston=sigma_v, rho_heston=rho_v, v0_heston=v0,
+                lambd_merton=lambd, mu_merton=mu, delta_merton=delta, side=side
             ))
         raise ValueError(f"Invalid FtMethod method: {ft_method}")
 
