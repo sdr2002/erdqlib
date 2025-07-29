@@ -166,7 +166,7 @@ class JumpFtiCalibrator(FtiCalibrator):
                     u=u, S0=S0, K=K, T=T, r=r,
                     lambd=lambd, mu=mu, delta=delta, sigma=sigma,
                 ),
-                side=side, b= 50.
+                side=side
             )
         elif ft_method is FtMethod.CARRMADAN:
             return JumpFtiCalibrator.calculate_option_price_carrmadan(
