@@ -186,4 +186,4 @@ def ex_calibration(
 
 
 if __name__ == "__main__":
-    ex_calibration(skip_plot=True)  # Example of CIR calibration
+    ex_calibration(skip_plot=False)  # Example of CIR calibration

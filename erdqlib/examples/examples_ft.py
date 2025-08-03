@@ -62,11 +62,11 @@ def ex_step3_b():
         I = 10_000,  # Number of steps
         random_seed=0,
         **{
-            "x0": 0.00648,
+            "x0": 0.00661528,
             "r": None,
-            "kappa_cir": 0.6989623744196691,
-            "theta_cir": 0.10868234595604083,
-            "sigma_cir": 0.0010018697187414139
+            "kappa_cir": 0.697536,
+            "theta_cir": 0.106926,
+            "sigma_cir": 0.00100215
         }
     )
 
@@ -139,10 +139,10 @@ def ex_step3_b_bcc_pricing():
         }
     )
 
-    r_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
+    f_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
     BCC.plot_paths(
         n=500,
-        paths={'x': x_arr, 'var': v_arr, 'r': r_arr},
+        paths={'x': x_arr, 'var': v_arr, 'f': f_arr},
         model_params=bcc_params,
         model_name=BCC.__name__
     )
@@ -254,7 +254,7 @@ def ex_compare_fti_versus_mc_bcc_european_option():
         )
         LOGGER.info(f"{side} EUR Option value under BCC FTI-CarrMadan: {bcc_price_fti}")
 
-        r_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
+        f_arr, v_arr, x_arr = BCC.calculate_paths(model_params=bcc_params)
         bcc_price_mc: float = price_montecarlo(
             underlying_path=x_arr,
             model_params=bcc_params,

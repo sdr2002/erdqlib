@@ -7,6 +7,7 @@ import pandas as pd
 from erdqlib.src.common.option import OptionInfo, OptionSide, OptionType, BarrierOptionInfo
 from erdqlib.src.mc.bates import Bates, BatesParameters
 from erdqlib.src.mc.bcc import BCC, BCCParameters
+from erdqlib.src.mc.cir import CirParameters, Cir
 from erdqlib.src.mc.evaluate import price_montecarlo, calculate_delta, DeltaResult
 from erdqlib.src.mc.gbm import Gbm, GbmParameters
 from erdqlib.src.mc.heston import HestonParameters, Heston
@@ -808,15 +809,41 @@ def example_vasicek():
     Vasicek.plot_paths(n=300, paths={'x': rates}, model_params=v_params, model_name=Vasicek.__name__, logy=False)
 
 
+def example_cir():
+    v_params: CirParameters = CirParameters(
+        T = 1.0,  # Maturity
+        M = 500,  # Number of paths for MC
+        I = 10_000,  # Number of steps
+        random_seed=0,
+
+        x0= 0.023,
+        kappa_cir= 0.20,
+        theta_cir = 0.01,
+        sigma_cir = 0.012,
+        r = None,  # Risk-free rate
+    )
+
+    rates = Cir.calculate_paths(v_params)
+    Cir.plot_paths(
+        n=300,
+        paths={'x': rates},
+        model_params=v_params,
+        model_name=Cir.__name__,
+        logy=False,
+        ylabel="Rate"
+    )
+
+
 if __name__ == "__main__":
-    # Call all the questions functions below
-    q5(skip_plot=True)
-    q6(skip_plot=True)
-    q7()
-    q8(skip_plot=True)
-    q9(skip_plot=True)
-    q10()
-    q13_1(skip_plot=True)
-    q13_2()
-    q15(skip_plot=True)
-    q14(skip_plot=True)
+    # # Call all the questions functions below
+    # q5(skip_plot=True)
+    # q6(skip_plot=True)
+    # q7()
+    # q8(skip_plot=True)
+    # q9(skip_plot=True)
+    # q10()
+    # q13_1(skip_plot=True)
+    # q13_2()
+    # q15(skip_plot=True)
+    # q14(skip_plot=True)
+    example_cir()

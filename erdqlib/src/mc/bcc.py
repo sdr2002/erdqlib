@@ -76,12 +76,9 @@ class BCCParameters(BatesParameters, CirParameters):
             T=self.T, M=self.M, I=self.I, random_seed=self.random_seed
         )
 
-    def get_implied_yield(self, t_year: float) -> float:
+    def get_r_at_t(self, t_year: float) -> float:
         """Get implied yield for the B function"""
         return implied_yield(t_year=t_year, price_0_t=B(self.get_B_params()))
-
-    def get_r_at_t(self, t: float) -> float:
-        return self.get_implied_yield(t_year=t)
 
 
 class BCC(Bates):
@@ -90,6 +87,7 @@ class BCC(Bates):
     def sample_paths(
             var_arr: np.ndarray,
             r_arr: np.ndarray,
+            r_T: float,
             b_params: BCCParameters,
             cho_matrix: np.ndarray,
             u1: np.ndarray,
@@ -113,7 +111,11 @@ class BCC(Bates):
         x_arr2d[0] = b_params.x0
         row: int = 0
         for t in range(1, b_params.M + 1, 1):
-            drift: np.ndarray = (r_arr[t-1] - rj - 0.5 * var_arr[t - 1]) * dt
+            drift: np.ndarray  # = (r_T - rj - 0.5 * var_arr[t - 1]) * dt
+            if t == 1:
+                drift = (b_params.r - rj - 0.5 * var_arr[t - 1]) * dt
+            else:
+                drift = (r_arr[t-1] - rj - 0.5 * var_arr[t - 1]) * dt
             z1: np.ndarray = np.dot(cho_matrix, u1[:, t])[row]
             stochastic_diffusion: np.ndarray = np.sqrt(var_arr[t - 1]) * sdt * z1
             jump_diffusion: np.array = (np.exp(b_params.mu_merton + b_params.delta_merton * zj[t]) - 1) * cj[t]
@@ -127,11 +129,11 @@ class BCC(Bates):
     def calculate_paths(
             model_params: BCCParameters, underlying_only: bool = False
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray] | np.ndarray:
-        LOGGER.info(model_params.to_json())
         rand_tensor, cho_matrix, zj, cj = BCC.generate_random_numbers(model_params=model_params)
 
         # Risk-free rate process paths
         r_arr2d: np.ndarray = Cir.sample_paths(c_params=model_params.to_cir_parameters())
+        r_T: float = model_params.get_r_at_t(model_params.T)
 
         # Volatility process paths
         v_arr2d: np.ndarray = BCC.sample_variance_paths(
@@ -140,7 +142,7 @@ class BCC(Bates):
 
         # Underlying price process paths
         x_arr2d: np.ndarray = BCC.sample_paths(
-            var_arr=v_arr2d, r_arr=r_arr2d, b_params=model_params,
+            var_arr=v_arr2d, r_arr=r_arr2d, r_T=r_T, b_params=model_params,
             cho_matrix=cho_matrix, u1=rand_tensor, zj=zj, cj=cj
         )
         if underlying_only:
