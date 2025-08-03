@@ -8,7 +8,7 @@ from scipy.optimize import fmin
 from erdqlib.src.common.option import OptionSide, OptionDataColumn
 from erdqlib.src.common.rate import SplineCurve, ForwardsLadder, implied_yield
 from erdqlib.src.ft.bates import BatesFtiCalibrator
-from erdqlib.src.ft.calibrator import FtMethod, plot_calibration_result
+from erdqlib.src.ft.calibrator import FtMethod, plot_calibration_result, FtiCalibrator
 from erdqlib.src.ft.cir import CirCalibrator, plot_calibrated_cir
 from erdqlib.src.ft.heston import HestonFtiCalibrator
 from erdqlib.src.mc.bates import BatesDynamicsParameters
@@ -254,10 +254,14 @@ def ex_pricing():
     x0, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton = bcc_params.get_pricing_params(
         apply_shortrate=False
     )
-    bates_price: float = BccFtiCalibrator.calculate_option_price_lewis(
-        x0=x0, T=T, r=r, K=90.,
-        kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston, v0_heston=v0_heston,
-        lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+    K = 90.
+    bates_price: float = FtiCalibrator.calculate_option_price_lewis(
+        x0=x0, T=T, r=r, K=K,
+        characteristic_integral=lambda u: BccFtiCalibrator.calculate_integral_characteristic(
+            u=u, S0=x0, K=K, T=T, r=r,
+            kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston, v0_heston=v0_heston,
+            lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+        ),
         side=side
     )
     LOGGER.info(f"{side} Option value under Bates: {bates_price}")
@@ -265,10 +269,13 @@ def ex_pricing():
     x0, T, r, kappa_heston, theta_heston, sigma_heston, rho_heston, v0_heston, lambd_merton, mu_merton, delta_merton = bcc_params.get_pricing_params(
         apply_shortrate=True
     )
-    bcc_price: float = BccFtiCalibrator.calculate_option_price_lewis(
+    bcc_price: float = FtiCalibrator.calculate_option_price_lewis(
         x0=x0, T=T, r=r, K=90.,
-        kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston, v0_heston=v0_heston,
-        lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+        characteristic_integral=lambda u: BccFtiCalibrator.calculate_integral_characteristic(
+            u=u, S0=x0, K=K, T=T, r=r,
+            kappa_heston=kappa_heston, theta_heston=theta_heston, sigma_heston=sigma_heston, rho_heston=rho_heston, v0_heston=v0_heston,
+            lambd_merton=lambd_merton, mu_merton=mu_merton, delta_merton=delta_merton,
+        ),
         side=side
     )
     LOGGER.info(f"{side} Option value under BCC: {bcc_price}")

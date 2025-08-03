@@ -142,32 +142,3 @@ class Cir(MonteCarlo):
         LOGGER.info(str(model_params.__dict__))
         x_arr2d: np.ndarray = Cir.sample_paths(model_params)
         return x_arr2d
-
-
-def example_cir():
-    v_params: CirParameters = CirParameters(
-        T = 1.0,  # Maturity
-        M = 500,  # Number of paths for MC
-        I = 10_000,  # Number of steps
-        random_seed=0,
-
-        x0= 0.023,
-        kappa_cir= 0.20,
-        theta_cir = 0.01,
-        sigma_cir = 0.012,
-        r = None,  # Risk-free rate
-    )
-
-    rates = Cir.calculate_paths(v_params)
-    Cir.plot_paths(
-        n=300,
-        paths={'x': rates},
-        model_params=v_params,
-        model_name=Cir.__name__,
-        logy=False,
-        ylabel="Rate"
-    )
-
-
-if __name__ == "__main__":
-    example_cir()

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 import numpy as np
 import pandas as pd
@@ -88,28 +88,6 @@ class HestonFtiCalibrator(FtiCalibrator):
         """
         psi = HestonFtiCalibrator.calculate_characteristic(u - 0.5j, T, r, kappa_v, theta_v, sigma_v, rho, v0)
         return (np.exp(1j * u * np.log(S0 / K)) * psi).real / (u ** 2 + 0.25)
-
-    @staticmethod
-    def calculate_option_price_lewis(
-            S0: float, K: float, T: float, r: float,
-            kappa_v: float, theta_v: float, sigma_v: float, rho: float, v0: float,
-            side: OptionSide
-    ) -> float:
-        int_value = quad(
-            lambda u: HestonFtiCalibrator.calculate_integral_characteristic(
-                u=u, S0=S0, K=K, T=T, r=r,
-                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho, v0=v0
-            ),
-            0,
-            np.inf,
-            limit=250,
-        )[0]
-        call_value = max(0, S0 - np.exp(-r * T) * np.sqrt(S0 * K) / np.pi * int_value)
-        if side is OptionSide.CALL:
-            return call_value
-        elif side is OptionSide.PUT:
-            return call_value - S0 + K * np.exp(-r * T)
-        raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
     def calculate_option_price_carrmadan(
@@ -225,12 +203,19 @@ class HestonFtiCalibrator(FtiCalibrator):
             present value of European call option
         """
         if ft_method is FtMethod.LEWIS:
-            return HestonFtiCalibrator.calculate_option_price_lewis(
-                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0, side=side
+            return FtiCalibrator.calculate_option_price_lewis(
+                x0=S0, K=K, T=T, r=r,
+                characteristic_integral=lambda u: HestonFtiCalibrator.calculate_integral_characteristic(
+                    u=u, S0=S0, K=K, T=T, r=r,
+                    kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0
+                ),
+                side=side
             )
         elif ft_method is FtMethod.CARRMADAN:
             return HestonFtiCalibrator.calculate_option_price_carrmadan(
-                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0, side=side
+                S0=S0, K=K, T=T, r=r,
+                kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho=rho_v, v0=v0,
+                side=side
             )
         raise ValueError(f"Invalid FtMethod method: {ft_method}")
 
@@ -386,12 +371,13 @@ def ex_pricing():
     rho = 0.1
     v0 = 0.01
 
-    for side in [OptionSide.CALL, OptionSide.PUT]:
-        value = HestonFtiCalibrator.calculate_option_price(
-            S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho_v=rho, v0=v0,
-            side=side, ft_method=ft_method
-        )
-        LOGGER.info(f"Value of the {side.name} option under Heston is:  ${value}")
+    for ft_method in FtMethod:
+        for side in [OptionSide.CALL, OptionSide.PUT]:
+            value = HestonFtiCalibrator.calculate_option_price(
+                S0=S0, K=K, T=T, r=r, kappa_v=kappa_v, theta_v=theta_v, sigma_v=sigma_v, rho_v=rho, v0=v0,
+                side=side, ft_method=ft_method
+            )
+            LOGGER.info(f"Value of the {side.name} option under Heston-{ft_method} is:  ${value}")
 
 
 def ex_calibration(
@@ -424,8 +410,8 @@ def ex_calibration(
 
 if __name__ == "__main__":
     ex_pricing()
-    ex_calibration(
-        data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
-        side=OptionSide.CALL,
-        skip_plot=False
-    )
+    # ex_calibration(
+    #     data_path=get_path_from_package("erdqlib@src/ft/data/stoxx50_20140930.csv"),
+    #     side=OptionSide.CALL,
+    #     skip_plot=False
+    # )

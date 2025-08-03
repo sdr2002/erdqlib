@@ -23,7 +23,6 @@ def price_montecarlo(
     """Calculate the price of an option from the Monte Carlo sampled underlying paths"""
     assert isinstance(o_info.side, OptionSide)
 
-    r_T: float = model_params.get_r_at_t(t=model_params.T)
     payoff: np.ndarray
     match o_info.o_type:
         case OptionType.EUROPEAN:
@@ -101,7 +100,7 @@ def price_montecarlo(
             for ti in range(model_params.M, 0, -1):
                 # discount next‐step cashflow back to time ti
                 # TODO is this a proper way to discount in BCC?
-                cf *= np.exp(-model_params.get_r_at_t(t=ti * dt) * dt)
+                cf *= np.exp(-model_params.get_r_at_t(t_year=model_params.T) * dt)
 
                 St = underlying_path[ti]
                 # immediate payoff if exercised at ti:
@@ -155,6 +154,7 @@ def price_montecarlo(
         case _:
             raise TypeError(f"Unknown option type: {o_info.o_type}")
 
+    r_T: float = model_params.get_r_at_t(t_year=model_params.T)
     discount: float = np.exp(-r_T * (model_params.T - t_i))
     average_payoff: float = float(np.mean(payoff))
     return discount * average_payoff

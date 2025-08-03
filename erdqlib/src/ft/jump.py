@@ -3,7 +3,6 @@ from typing import Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.integrate import quad
 from scipy.optimize import brute, fmin
 
 from erdqlib.src.common.option import OptionDataColumn
@@ -61,7 +60,9 @@ class JumpFtiCalibrator(FtiCalibrator):
 
     @staticmethod
     def calculate_integral_characteristic(
-            u: float, S0: float, K: float, T: float, r: float, sigma: float, lambd: float, mu: float, delta: float
+            u: float,
+            S0: float, K: float, T: float, r: float,
+            sigma: float, lambd: float, mu: float, delta: float
     ) -> float:
         r"""
         Integrand for the Lewis (2001) FFT pricing under Merton ’76 model.
@@ -76,31 +77,6 @@ class JumpFtiCalibrator(FtiCalibrator):
             u=u - 0.5j, T=T, r=r, lambd=lambd, mu=mu, delta=delta, sigma=sigma
         )
         return (np.exp(1j * u * np.log(S0 / K)) * char).real / (u ** 2 + 0.25)
-
-    @staticmethod
-    def calculate_option_price_lewis(
-            S0: float, K: float, T: float, r: float,
-            lambd: float, mu: float, delta: float, sigma: float,
-            side: OptionSide
-    ) -> float:
-        """
-        Value of the European option under Lewis (2001) for Merton'76 jump diffusion model.
-        Supports both CALL and PUT via OptionSide.
-        """
-        int_value = quad(
-            lambda u: JumpFtiCalibrator.calculate_integral_characteristic(
-                u=u, S0=S0, K=K, T=T, r=r,
-                sigma=sigma, lambd=lambd, mu=mu, delta=delta
-            ),
-            a=0, b=50, limit=250,
-        )[0]
-        call_value = max(0, S0 - np.exp(-r * T) * np.sqrt(S0 * K) / np.pi * int_value)
-        if side is OptionSide.CALL:
-            return call_value
-        elif side is OptionSide.PUT:
-            # Put-Call parity: P = C - S0 + K*exp(-rT)
-            return call_value - S0 + K * np.exp(-r * T)
-        raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
     def calculate_option_price_carrmadan(
@@ -184,8 +160,13 @@ class JumpFtiCalibrator(FtiCalibrator):
             side: OptionSide, ft_method: FtMethod = FtMethod.LEWIS
     ) -> float:
         if ft_method is FtMethod.LEWIS:
-            return JumpFtiCalibrator.calculate_option_price_lewis(
-                S0=S0, K=K, T=T, r=r, lambd=lambd, mu=mu, delta=delta, sigma=sigma, side=side
+            return FtiCalibrator.calculate_option_price_lewis(
+                x0=S0, K=K, T=T, r=r,
+                characteristic_integral=lambda u: JumpFtiCalibrator.calculate_integral_characteristic(
+                    u=u, S0=S0, K=K, T=T, r=r,
+                    lambd=lambd, mu=mu, delta=delta, sigma=sigma,
+                ),
+                side=side
             )
         elif ft_method is FtMethod.CARRMADAN:
             return JumpFtiCalibrator.calculate_option_price_carrmadan(

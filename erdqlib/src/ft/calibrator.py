@@ -1,10 +1,11 @@
 
 from abc import ABC, abstractmethod
 from enum import StrEnum, auto
-from typing import Any, List, Dict, Tuple, Optional
+from typing import Any, List, Dict, Tuple, Optional, Callable
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
+from scipy.integrate import quad
 
 from erdqlib.src.common.option import OptionDataColumn, OptionSide
 from erdqlib.src.mc.dynamics import DynamicsParameters
@@ -36,6 +37,24 @@ class FtiCalibrator(ABC):
     @abstractmethod
     def calculate_integral_characteristic(*args, **kwargs) -> float:
         raise NotImplementedError("Child class must implement")
+
+    @staticmethod
+    def calculate_option_price_lewis(
+            x0: float, K: float, T: float, r: float,
+            characteristic_integral: Callable[[complex], float],
+            side: OptionSide, b: float = np.inf
+    ) -> float:
+        """European option value in Bates (1996) model via Lewis (2001)."""
+        int_value = quad(
+            characteristic_integral,  # type: ignore
+            0, b, limit=250,
+        )[0]
+        call_value = max(0, x0 - np.exp(-r * T) * np.sqrt(x0 * K) / np.pi * int_value)
+        if side is OptionSide.CALL:
+            return call_value
+        elif side is OptionSide.PUT:
+            return call_value - x0 + K * np.exp(-r * T)
+        raise ValueError(f"Invalid side: {side}")
 
     @staticmethod
     @abstractmethod
