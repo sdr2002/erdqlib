@@ -47,7 +47,9 @@ Lastly, notice that we can make forecasts on the observable process $y_{t+1}$ by
 
 We are going to bring to practice this estimation by simulating a time series governed by a hidden Markov process. We first build a simulated time series and then estimate the model by maximum likelihood, applying the Hamilton filter within the evaluation step. To keep things manageable, we are going to assume that the value of $\sigma$ is known. Therefore, we just need to estimate the vector $\theta=\{\mu_1,\mu_2,p_{11},p_{22}\}$.
 """
+import datetime as dt
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Tuple, List, Optional
 
 import pandas as pd
@@ -696,34 +698,42 @@ class HmmSmoother(HmmFilter):
         )
 
     @classmethod
-    def plot_probabilities(cls, xi_prob_T: NDArray[Tuple[float, float]], transparency: float = 0.3):
+    def plot_probabilities(
+            cls,
+            time_index: pd.DatetimeIndex,
+            xi_prob_T: NDArray[Tuple[float, float]],
+            transparency: float = 0.3
+    ):
         fig, ax1 = plt.subplots(figsize=(16, 6))
 
         # Plot state 0 probability
-        color1 = "tab:blue"
-        line1 = ax1.plot(xi_prob_T[:, 0], color=color1, alpha=transparency, label="State 0")
+        ax1.plot(
+            time_index, xi_prob_T[:, 0],
+            alpha=transparency, label="State 0"
+        )
+        ax1.plot(
+            time_index, xi_prob_T[:, 1],
+            alpha=transparency, label="State 1"
+        )
         ax1.set_xlabel("Time")
-        ax1.set_ylabel("State 0 Probability")
+        ax1.set_ylabel("State Probability")
         ax1.tick_params(axis="y")
         ax1.set_title("State Probabilities")
 
-        # Plot state 1 probability on secondary y-axis
+        # Plot the index of the maximum probability state between the two states of xi_prob_T on ax1 twinx
         ax2 = ax1.twinx()
-        color2 = "tab:orange"
-        line2 = ax2.plot(xi_prob_T[:, 1], color=color2, alpha=transparency, label="State 1")
-        ax2.set_ylabel("State 1 Probability")
-        ax2.tick_params(axis="y")
+        max_state = np.argmax(xi_prob_T, axis=1)
+        ax2.plot(
+            time_index, max_state,
+            color='black', linestyle='-', alpha=0.5, label="Max State Index"
+        )
+        ax2.set_ylabel("Argmax state")
 
-        # Combine lines from both axes into a single legend
-        lines = line1 + line2
-        labels: List[str] = [str(l.get_label()) for l in lines]
-        fig.legend(lines, labels, loc="lower left")
+        fig.legend(loc="lower left")
 
         # Use non-blocking mode
-        plt.draw()
-        plt.pause(0.001)  # Small pause to update the figure
-
         plt.show()
+
 
     @classmethod
     def optimise_smoother(
@@ -744,10 +754,10 @@ class HmmSmoother(HmmFilter):
             skip_plot: bool = True,
             test_code: Optional[int] = None
     ):
-        YData: NDArray[Tuple[float]] = df_vix.to_numpy().reshape(-1)  # T x 1 2D array of vix
+        y_data: NDArray[Tuple[float]] = df_vix.to_numpy().reshape(-1)  # T x 1 2D array of vix
 
         # Initialize parameters
-        t_sample = len(YData)
+        t_sample = len(y_data)
 
         # SET INITIAL GUESSES
         params_result: HMMParameters = HMMParameters(
@@ -760,7 +770,7 @@ class HmmSmoother(HmmFilter):
         params_result.log_iter(logger=LOGGER)
 
         xi_prob_T: NDArray[Tuple[float, float]] = None  # type: ignore
-        for ite in range(0, itemax):
+        for ite in range(itemax):
             # Expectation step
             xi_prob_t, xi_prob_t1 = cls.forward_alg(
                 pi0=params_result.pi,
@@ -769,13 +779,13 @@ class HmmSmoother(HmmFilter):
                 p_transition=params_result.p_transition,
                 mu=params_result.mu,
                 sigma=params_result.sigma,
-                Y=YData
+                Y=y_data
             )  # type: NDArray[Tuple[float, float]], NDArray[Tuple[float, float]]
             if test_code == 1:
                 if ite == 0:
                     orig_xi_prob_t, orig_xi_prob_t1 = original_forward_alg(
                         pi0=params_result.pi, d_states=d_states, t_sample=t_sample,
-                        p_transition=params_result.p_transition, mu=params_result.mu, sigma=params_result.sigma, Y=YData
+                        p_transition=params_result.p_transition, mu=params_result.mu, sigma=params_result.sigma, Y=y_data
                     )  # type: NDArray[Tuple[float, float]], NDArray[Tuple[float, float]]
                     np.testing.assert_array_almost_equal(actual=xi_prob_t, desired=orig_xi_prob_t)
                     np.testing.assert_array_almost_equal(actual=xi_prob_t1, desired=orig_xi_prob_t1)
@@ -788,14 +798,16 @@ class HmmSmoother(HmmFilter):
                 p_transition=params_result.p_transition
             )
             if not skip_plot:
-                cls.plot_probabilities(xi_prob_T=xi_prob_T)
+                cls.plot_probabilities(xi_prob_T=xi_prob_T, time_index=df_vix.index)
                 skip_plot = True
             if test_code == 1:
                 if ite == 0:
-                    np.testing.assert_array_almost_equal(actual=xi_prob_T[0],
-                                                         desired=np.array([1.00000000e+00, 1.79325439e-14]))
-                    np.testing.assert_array_almost_equal(actual=xi_prob_T[3],
-                                                         desired=np.array([0.49315249, 0.50684751]))
+                    np.testing.assert_array_almost_equal(
+                        actual=xi_prob_T[0], desired=np.array([1.00000000e+00, 1.79325439e-14])
+                    )
+                    np.testing.assert_array_almost_equal(
+                        actual=xi_prob_T[3], desired=np.array([0.49315249, 0.50684751])
+                    )
 
             # Maximisation step
             opt_params: HMMParameters = cls.em_maximise(
@@ -809,7 +821,7 @@ class HmmSmoother(HmmFilter):
                     t_sample=t_sample
                 ),
                 d_states=d_states,
-                Y=YData
+                Y=y_data
             )
             params_diff: NDArray[Tuple[float]] = params_result.calculate_differential(opt_params)
             params_result.log_iter(
@@ -842,7 +854,7 @@ class HmmSmoother(HmmFilter):
 
         if xi_prob_T is None:
             raise ValueError("xi_prob_T should not be None, check the backward algorithm implementation.")
-        cls.plot_probabilities(xi_prob_T=xi_prob_T)
+        cls.plot_probabilities(xi_prob_T=xi_prob_T, time_index=df_vix.index)
 
         return HMMParameters(
             mu=params_result.mu,
@@ -891,16 +903,29 @@ def original_forward_alg(
 
     return xi_prob_t, xi_prob_t1
 
+
+class DataColumn(StrEnum):
+    DATE = "DATE"
+    OPEN = "OPEN"
+    HIGH = "HIGH"
+    LOW = "LOW"
+    CLOSE = "CLOSE"
+
+
 def load_vix_data(
         file_path: str = "./VIX_History_L4.csv",
-        vix_col: str = "CLOSE",
+        vix_col: str = DataColumn.CLOSE,
+        date_i: dt.date = dt.date(1990, 1, 1),
+        date_f: dt.date = dt.date(2022, 6, 30),
         skip_plot: bool = True
 ) -> pd.DataFrame:
     PData = pd.read_csv(file_path)
 
-    YDatapd = PData.set_index("DATE")[[vix_col]]
+    YDatapd = PData.set_index(DataColumn.DATE)[[vix_col]]
     YDatapd.index = pd.to_datetime(YDatapd.index)
-    YDatapd[vix_col] = np.log(YDatapd[vix_col])
+    if date_i and date_f:
+        YDatapd = YDatapd.loc[date_i: date_f]
+    YDatapd.loc[:, vix_col] = np.log(YDatapd[vix_col])
     YData = YDatapd.to_numpy()
     YData = np.log(YData)
     if not skip_plot:
