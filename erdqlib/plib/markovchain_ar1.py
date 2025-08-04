@@ -127,7 +127,8 @@ def ex_sample_paths(
         P_tauchen, zgrid_tauchen, P_rouwen, zgrid_rouwen, N_GRID,
         i_init=1, random_seed=12345, LEN_HIST=10000
 ):
-    # Monte Carlo simulations to compare performance
+    """Monte Carlo simulations to compare performance"""
+
     # seed random number generator
     seed(random_seed)
 
@@ -143,17 +144,34 @@ def ex_sample_paths(
 
     randarray = rand(LEN_HIST)
 
-    # for j in range(1, LEN_HIST):
-    #     for r in range(0, N_GRID):
-    #         if randarray[j] < np.cumsum(P_tauchen[histories_tauchen_ind[j - 1], :])[r]:
-    #             histories_tauchen_z[j] = zgrid_tauchen[r]
-    #             histories_tauchen_ind[j] = r
-    #             break
-    #     for r in range(0, N_GRID):
-    #         if randarray[j] < np.cumsum(P_rouwen[histories_rouwen_ind[j - 1], :])[r]:
-    #             histories_rouwen_z[j] = zgrid_rouwen[r]
-    #             histories_rouwen_ind[j] = r
-    #             break
+    # Precompute cumulative transition matrices
+    cum_P_tauchen = np.cumsum(P_tauchen, axis=1)
+    cum_P_rouwen = np.cumsum(P_rouwen, axis=1)
+
+    '''
+    for j in range(1, LEN_HIST):
+        for r in range(0, N_GRID):
+            if randarray[j] < np.cumsum(P_tauchen[histories_tauchen_ind[j - 1], :])[r]:
+                histories_tauchen_ind[j] = r
+                histories_tauchen_z[j] = zgrid_tauchen[r]
+                break
+        for r in range(0, N_GRID):
+            if randarray[j] < np.cumsum(P_rouwen[histories_rouwen_ind[j - 1], :])[r]:
+                histories_rouwen_ind[j] = r
+                histories_rouwen_z[j] = zgrid_rouwen[r]
+                break
+    '''
+    # Find next state index using searchsorted
+    for j in range(1, LEN_HIST):
+        prev_tauchen = histories_tauchen_ind[j - 1]
+        next_tauchen = np.searchsorted(cum_P_tauchen[prev_tauchen], randarray[j])
+        histories_tauchen_ind[j] = next_tauchen
+        histories_tauchen_z[j] = zgrid_tauchen[next_tauchen]
+
+        prev_rouwen = histories_rouwen_ind[j - 1]
+        next_rouwen = np.searchsorted(cum_P_rouwen[prev_rouwen], randarray[j])
+        histories_rouwen_ind[j] = next_rouwen
+        histories_rouwen_z[j] = zgrid_rouwen[next_rouwen]
 
     # Precompute cumulative transition matrices
     cum_P_tauchen = np.cumsum(P_tauchen, axis=1)
