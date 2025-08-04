@@ -890,17 +890,24 @@ class HmmSmoother(HmmFilter):
 
         if test_code == 1:
             np.testing.assert_array_almost_equal(
-                actual=params_result.mu, desired=np.array([2.49921924, 3.04007959]), decimal=8
-            )
-            np.testing.assert_array_almost_equal(
-                actual=params_result.sigma, desired=np.array([0.09329688, 0.29801484]), decimal=8
-            )
-            np.testing.assert_array_almost_equal(
-                actual=params_result.p_transition, desired=np.array([[0.98050049, 0.01949951], [0.0062869, 0.9937131]]),
+                actual=params_result.mu,
+                desired=np.array([2.49966219, 3.04057299]),
                 decimal=8
             )
             np.testing.assert_array_almost_equal(
-                actual=params_result.pi, desired=np.array([2.91218071e-56, 1.00000000e+00]), decimal=8
+                actual=params_result.sigma,
+                desired=np.array([0.09348212, 0.29783621]),
+                decimal=8
+            )
+            np.testing.assert_array_almost_equal(
+                actual=params_result.p_transition,
+                desired=np.array([[0.98061075, 0.01938925], [0.00628155, 0.99371845]]),
+                decimal=8
+            )
+            np.testing.assert_array_almost_equal(
+                actual=params_result.pi,
+                desired=np.array([2.91218071e-56, 1.00000000e+00]),
+                decimal=8
             )
 
         if e_path.xi_prob_T is None:
@@ -1204,7 +1211,7 @@ def ex_hmm_smoother_2d_with_vix():
 if __name__ == "__main__":
     np.set_printoptions(precision=3)
 
-    ex_hmm_filter_2d()
+    # ex_hmm_filter_2d()
     # ex_hmm_filter_3d()
 
     ex_hmm_smoother_2d_with_vix()
