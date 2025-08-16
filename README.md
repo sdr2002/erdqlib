@@ -2,8 +2,8 @@
 Q-Quant library 
 
 # Reference
-1. Dr.Emiliano's City University course on Option for FX and IR by C++ course
-2. Professor Derivative Pricing and Stochastic modelling courses on World Quant University.
+1. Dr.Emiliano's City University course on "Option for FX and IR by C++" course
+2. Professor Sergio Garcia's "Derivative Pricing" and "Stochastic Modelling" courses on World Quant University.
 
 # Environment
 - C++23 standard

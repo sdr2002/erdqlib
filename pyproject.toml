@@ -7,14 +7,17 @@ name = "erdqlib"
 version = "0.1.0"
 description = "A package for Q-Quant codes by Erood."
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "sdr2002@gmail.com", email = "sdr2002@gmail.com"}
 ]
 dependencies = [
-    "numpy",
-    "matplotlib"
+    "numpy==2.3.1",
+    "pandas==2.2.3",
+    "scipy==1.16.1",
+    "scikit-learn==1.6.1",
+    "matplotlib==3.10.3"
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
